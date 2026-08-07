@@ -1,0 +1,31 @@
+# secrets & local env
+.env
+
+# python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# data & uploads (server-local)
+.paperlens/
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# web
+node_modules/
+.next/
+out/
+
+# misc
+.DS_Store
+*.log
+
+# build & tooling
+tsconfig.tsbuildinfo
+coverage/
+*.egg-info/
+测试结果.txt

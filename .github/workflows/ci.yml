@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install core
+        run: |
+          pip install -e core fastapi "uvicorn[standard]" python-multipart
+          pip install -e core --no-deps --force-reinstall --config-settings editable_mode=compat
+      - name: Run tests
+        run: |
+          python -m pytest tests/ -q
+      - name: Parse evaluation smoke test
+        run: |
+          python scripts/fetch_eval_corpus.py --dir /tmp/eval_corpus
+          python scripts/eval_parse.py --corpus /tmp/eval_corpus
+
+  frontend:
+    name: Frontend build (Next.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        working-directory: web
+        run: bun install
+      - name: Build
+        working-directory: web
+        run: bun run build

@@ -1,0 +1,46 @@
+{
+  "papers": [
+    {
+      "file": "1311.2524.pdf",
+      "arxiv_id": "1311.2524",
+      "sha256": "ed7c448793d4c8a750bf4892c9ad5ef901b51f797a7195c18db540cffaed25bd",
+      "source": "https://arxiv.org/pdf/1311.2524"
+    },
+    {
+      "file": "1506.02640.pdf",
+      "arxiv_id": "1506.02640",
+      "sha256": "54bcd2dd05dc618849e8a94d8b88fe3eeb37f80e96e200600d38f1f733931678",
+      "source": "https://arxiv.org/pdf/1506.02640"
+    },
+    {
+      "file": "1603.05027.pdf",
+      "arxiv_id": "1603.05027",
+      "sha256": "676113014c130991d3a1203b151e1f2d4596f08898440c72270934a88d006c32",
+      "source": "https://arxiv.org/pdf/1603.05027"
+    },
+    {
+      "file": "1703.06870.pdf",
+      "arxiv_id": "1703.06870",
+      "sha256": "b595a882b763d55d933543131f32a2c4b6f41d0818d418ef46a2b66f946b67a8",
+      "source": "https://arxiv.org/pdf/1703.06870"
+    },
+    {
+      "file": "1812.01187.pdf",
+      "arxiv_id": "1812.01187",
+      "sha256": "5e07637c0f53db2e5a8671179c9442af21eb64fbfb58d1235d69c8b99dcb6744",
+      "source": "https://arxiv.org/pdf/1812.01187"
+    },
+    {
+      "file": "2005.12872.pdf",
+      "arxiv_id": "2005.12872",
+      "sha256": "d4b846bd44896e1d21527f48eddc422c263c9a4f8a3fa4be249750956882698d",
+      "source": "https://arxiv.org/pdf/2005.12872"
+    },
+    {
+      "file": "2106.01497.pdf",
+      "arxiv_id": "2106.01497",
+      "sha256": "6d0aeaa39181ef2c4cf2d3cb8016653f8f4023fb8bcef95f40e5791e733284b4",
+      "source": "https://arxiv.org/pdf/2106.01497"
+    }
+  ]
+}

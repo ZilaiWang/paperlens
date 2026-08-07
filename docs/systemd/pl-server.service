@@ -1,0 +1,14 @@
+[Unit]
+Description=PaperLens 2.0 FastAPI server
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/paperlens
+EnvironmentFile=/home/ubuntu/paperlens/.env
+ExecStart=/home/ubuntu/paperlens/.venv/bin/uvicorn server.app.main:app --host 0.0.0.0 --port 8700
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

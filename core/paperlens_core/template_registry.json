@@ -1,0 +1,58 @@
+{
+  "pmlr": {
+    "name": "pmlr",
+    "page_width": 612.0,
+    "page_height": 792.0,
+    "column_count": 2,
+    "left_col_x1": 289.4,
+    "right_col_x0": 307.4,
+    "body_font_size": 10.0,
+    "line_height": 10.0,
+    "heading_font_size": 12.0,
+    "indent": 10.7,
+    "caption_prefix": "Figure 1",
+    "references_style": "unknown"
+  },
+  "arxiv": {
+    "name": "arxiv",
+    "page_width": 612.0,
+    "page_height": 792.0,
+    "column_count": 2,
+    "left_col_x1": 289.4,
+    "right_col_x0": 307.4,
+    "body_font_size": 10.0,
+    "line_height": 10.0,
+    "heading_font_size": 12.0,
+    "indent": 10.6,
+    "caption_prefix": "Figure 1",
+    "references_style": "author_year"
+  },
+  "neurips": {
+    "name": "neurips",
+    "page_width": 612.0,
+    "page_height": 792.0,
+    "column_count": 2,
+    "left_col_x1": 190.8,
+    "right_col_x0": 332.9,
+    "body_font_size": 10.0,
+    "line_height": 10.0,
+    "heading_font_size": 12.0,
+    "indent": 22.8,
+    "caption_prefix": "Figure 1",
+    "references_style": "numeric"
+  },
+  "iclr": {
+    "name": "iclr",
+    "page_width": 612.0,
+    "page_height": 792.0,
+    "column_count": 1,
+    "left_col_x1": 275.1,
+    "right_col_x0": 305.3,
+    "body_font_size": 10.0,
+    "line_height": 10.0,
+    "heading_font_size": 12.0,
+    "indent": 19.7,
+    "caption_prefix": "Figure 1",
+    "references_style": "author_year"
+  }
+}

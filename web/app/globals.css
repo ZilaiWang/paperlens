@@ -1,0 +1,164 @@
+@import "tailwindcss";
+
+/* PaperLens 2.0 visual language (改进方案1.md §19):
+   quiet background, restrained indigo accent, serif paper body, sans UI. */
+:root {
+  --pl-bg: #f7f7f5;
+  --pl-panel: #ffffff;
+  --pl-text: #202124;
+  --pl-secondary: #6b7280;
+  --pl-border: #e6e7ea;
+  --pl-accent: #2f4b7c;
+  --pl-translation-bg: #f0f4f8;
+  --pl-serif: Georgia, "Times New Roman", "Noto Serif SC", serif;
+
+  /* 统一 motion token（改进方案2.md §19.1）：组件不再各自写 200ms/ease */
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 260ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+html,
+body {
+  background: var(--pl-bg);
+  color: var(--pl-text);
+  font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.paper-serif {
+  font-family: var(--pl-serif);
+}
+
+.translation-block {
+  background: var(--pl-translation-bg);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+  margin-top: 0.35rem;
+  color: #3d4451;
+  line-height: 1.85;
+  font-size: 0.95rem;
+}
+
+@keyframes pl-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.pl-fade {
+  animation: pl-fade 0.25s ease-out;
+}
+
+/* 引用点击后参考文献条目短暂高亮（改进方案2.md §19.2） */
+@keyframes pl-ref-flash {
+  0% {
+    background-color: #bcd4ee;
+  }
+  40% {
+    background-color: #dbe7f6;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.ref-flash {
+  animation: pl-ref-flash 1.6s var(--ease-standard);
+  border-radius: 6px;
+}
+
+/* 证据高亮（V3.19：点击主张跳转后，原文证据软黄高亮常驻；跳转瞬间
+   闪烁一次加深黄再回落定位提示。颜色取 #fff7c2/#fde68a 避免过冲） */
+@keyframes pl-evidence-flash {
+  0% {
+    background-color: #fde68a;
+  }
+  100% {
+    background-color: #fff7c2;
+  }
+}
+mark.pl-evidence {
+  background-color: #fff7c2;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+mark.pl-evidence.flashing {
+  animation: pl-evidence-flash 1.2s var(--ease-standard);
+}
+
+/* Agent claim 卡片逐条出现（改进方案2.md §19.2） */
+@keyframes pl-claim-enter {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.pl-claim-enter {
+  animation: pl-claim-enter var(--motion-base) var(--ease-enter);
+}
+
+/* Agent 思考指示：三颗弹跳圆点，从消息发出到回答完成持续动画，
+   配合阶段文字（stage_started 事件）让用户始终能看到处理在推进 */
+@keyframes pl-typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+.pl-typing {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.pl-typing span {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--pl-accent);
+  animation: pl-typing-bounce 1.1s var(--ease-standard) infinite;
+}
+.pl-typing span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.pl-typing span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+/* 无障碍（改进方案2.md §19.3） */
+:focus-visible {
+  outline: 2px solid var(--pl-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+::selection {
+  background: rgba(47, 75, 124, 0.18);
+}
