@@ -9,7 +9,7 @@ ExecStart=/usr/local/bin/node /home/ubuntu/paperlens/web/node_modules/next/dist/
 Restart=on-failure
 RestartSec=3
 Environment=NODE_ENV=production
-Environment=NEXT_PUBLIC_API_BASE=http://124.221.143.248
+Environment=NEXT_PUBLIC_API_BASE=http://<server-ip>
 
 [Install]
 WantedBy=multi-user.target

@@ -111,7 +111,7 @@ pdfplumber 文本层
 
 ## 6. 生产环境
 
-- 服务器：124.221.143.248（腾讯云 2C2G），代码 `/home/ubuntu/paperlens`（与 candela 平行）。
+- 服务器：<server-ip>（腾讯云 2C2G），代码 `/home/ubuntu/paperlens`。
 - systemd：`pl-server`（uvicorn :8700）、`pl-web`（next start :3000）。
 - nginx：`docs/nginx/paperlens.conf`——HTML no-cache（关键：Next 静态页默认一年缓存曾导致更新不可见）、静态资源 immutable、API no-store。
 - 安全：仅放行 80/22；3000/8700 内网；API key 在服务器 `.env`，`.gitignore` 排除。

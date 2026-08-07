@@ -1,7 +1,7 @@
 # PaperLens 2.0 服务器部署
 
-> 已部署：124.221.143.248（腾讯云 2C2G）· /home/ubuntu/paperlens（与 candela 平行）
-> 外网入口：http://124.221.143.248/（nginx :80 → web :3000 + api :8700）
+> 已部署：<server-ip>（腾讯云 2C2G）· /home/ubuntu/paperlens
+> 外网入口：http://<server-ip>/（nginx :80 → web :3000 + api :8700）
 
 ## 架构
 
