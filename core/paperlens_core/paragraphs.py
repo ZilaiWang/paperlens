@@ -299,7 +299,6 @@ def _rebuild_page(
                 lines.append(make_line(visual_line))
 
     # 4. per-column streams in reading order.
-    full_width = [line for line in lines if line.x1 - line.x0 > page_width * 0.55]
     narrow = [
         line
         for line in lines
@@ -318,7 +317,7 @@ def _rebuild_page(
     # 3. per-column stream in reading order; standalone lines break paragraphs.
     # Full-width lines (spanning both columns) belong to the first stream only.
     output: list[Block] = []
-    for column_index, (col_x0, col_x1) in enumerate(columns):
+    for column_index, (_col_x0, _col_x1) in enumerate(columns):
         if column_index == 0:
             candidates = (
                 line for line in lines

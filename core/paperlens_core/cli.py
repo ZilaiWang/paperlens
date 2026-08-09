@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 from .config import Settings
@@ -122,23 +120,6 @@ def command_evaluate_sections(args: argparse.Namespace, settings: Settings) -> i
     return 0
 
 
-def command_validate_demo(args: argparse.Namespace, settings: Settings) -> int:
-    script = Path(__file__).resolve().parents[2] / "scripts" / "validate_demo_assets.py"
-    return subprocess.call([sys.executable, str(script)])
-
-
-def command_import_demo(args: argparse.Namespace, settings: Settings) -> int:
-    root = Path(__file__).resolve().parents[2]
-    manifest = json.loads((root / "data" / "demo" / "manifest.json").read_text(encoding="utf-8"))
-    database, service = _runtime(settings)
-    imported = []
-    for record in manifest["papers"]:
-        outcome = service.ingest_file(root / "data" / "demo" / record["file"])
-        imported.append(outcome.result.paper.paper_id)
-    _print_json({"imported": imported, "database": str(database.path)})
-    return 0
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="paperlens", description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -161,10 +142,6 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate = subparsers.add_parser("evaluate-sections", help="evaluate a SHA-pinned section gold")
     evaluate.add_argument("gold")
     evaluate.set_defaults(handler=command_evaluate_sections)
-    validate = subparsers.add_parser("validate-demo", help="run demo copyright/integrity gate")
-    validate.set_defaults(handler=command_validate_demo)
-    import_demo = subparsers.add_parser("import-demo", help="preparse the three packaged demo PDFs")
-    import_demo.set_defaults(handler=command_import_demo)
     return parser
 
 

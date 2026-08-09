@@ -1,7 +1,7 @@
-"""DocumentIR: the document-intermediate representation for PaperLens 2.0.
+"""DocumentIR entities and stable source identities.
 
 Block is the basis for display and positioning; Chunk is only a retrieval
-derivative and never the document itself (see 改进方案1.md §8).
+derivative and never the document itself.
 
 Stable identity: block_id = sha256(paper_version_sha + page + bbox + text_hash)
 so the same logical block is addressable across re-parses and Agent citations.
@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import hashlib
 from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StrEnum(str, Enum):
@@ -18,9 +21,6 @@ class StrEnum(str, Enum):
 
     def __str__(self) -> str:
         return str(self.value)
-from typing import Any, Literal
-
-from pydantic import BaseModel, ConfigDict, Field
 
 
 def sha256_text(text: str) -> str:
@@ -273,7 +273,7 @@ class TranslationUnit(BaseModel):
 
 
 class ChunkSegment(BaseModel):
-    """Char-range mapping from chunk text back to source blocks (改进方案2.md §16.1)."""
+    """Char-range mapping from chunk text back to source blocks ."""
 
     model_config = ConfigDict(extra="forbid")
 

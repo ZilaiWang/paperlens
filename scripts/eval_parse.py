@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""V3.0A parse evaluation baseline (改进方案2.md §V3.0A).
+"""Evaluate parser and paragraph reconstruction over a PDF corpus.
 
 Runs the current parser + paragraph rebuild over a corpus of CV papers and
 reports reproducible metrics: tiny-block ratios, paragraph stats, table-row
@@ -13,15 +13,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 
-from paperlens_core.parser import parse_pdf_bytes
-from paperlens_core.paragraphs import rebuild_paragraphs, _is_table_row
-from paperlens_core.sections import detect_sections, section_metrics
+from paperlens_core.paragraphs import _is_table_row, rebuild_paragraphs
+from paperlens_core.sections import detect_sections
 
 
 def tiny_ratio(texts: list[str]) -> dict[str, float]:
@@ -43,7 +41,6 @@ def evaluate_pdf(path: Path, engine: str = "hybrid") -> dict[str, object]:
     # --engine 仅作回归对比的显式覆盖
     if engine in ("pymupdf", "pdfplumber"):
         from paperlens_core.config import Settings
-
         from paperlens_core.parse_router import ParseRouter
 
         settings = Settings(_env_file=None)

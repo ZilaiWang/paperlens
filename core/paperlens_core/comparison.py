@@ -229,7 +229,7 @@ class PaperComparator:
         )
 
 # ---------------------------------------------------------------------------
-# V4.5（改进方案3 §13）：TopicAlignmentGate + 可比性判定
+# V4.5：TopicAlignmentGate + 可比性判定
 # ---------------------------------------------------------------------------
 
 TOPIC_ALIGNMENT_SYSTEM = """Judge whether the given papers address the SAME

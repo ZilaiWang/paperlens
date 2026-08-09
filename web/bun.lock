@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "web",
+      "name": "paperlens-web",
       "dependencies": {
         "katex": "^0.18.1",
         "next": "16.2.12",

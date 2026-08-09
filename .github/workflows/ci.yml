@@ -6,22 +6,29 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
-    name: Backend tests (pytest)
+    name: Python lint and tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      - name: Install core
-        run: |
-          pip install -e core fastapi "uvicorn[standard]" python-multipart
-          pip install -e core --no-deps --force-reinstall --config-settings editable_mode=compat
+      - name: Install backend and development dependencies
+        run: pip install -e "core[server,dev,pymupdf]"
+      - name: Lint Python
+        run: ruff check core server scripts tests
       - name: Run tests
-        run: |
-          python -m pytest tests/ -q
+        run: python -m pytest
       - name: Parse evaluation smoke test
         run: |
           python scripts/fetch_eval_corpus.py --dir /tmp/eval_corpus
@@ -30,14 +37,15 @@ jobs:
   frontend:
     name: Frontend build (Next.js)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.3.14"
       - name: Install dependencies
         working-directory: web
-        run: bun install
+        run: bun install --frozen-lockfile
       - name: Build
         working-directory: web
         run: bun run build

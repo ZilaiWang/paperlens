@@ -1,19 +1,30 @@
 ---
 name: Feature request
-about: 提出一个新功能建议
+about: Propose a focused capability or improvement
 title: "[Feature] "
 labels: enhancement
 assignees: ""
 ---
 
-**你的想法**
-你希望 PaperLens 增加什么功能？
+## Problem
 
-**使用场景**
-这个功能解决什么问题？在什么场景下使用？
+What research or reading workflow is difficult today? Describe the problem
+before the proposed implementation.
 
-**可选方案**
-有没有其他替代思路？
+## Proposed outcome
 
-**其他上下文**
-任何补充信息。
+What should a user be able to do, and how would success be verified?
+
+## Evidence and data implications
+
+Does the proposal change parsing, evidence identity, model data sent externally,
+storage, API contracts, or document licensing?
+
+## Alternatives
+
+What smaller change, existing workflow, or external tool could address the same
+need?
+
+## Additional context
+
+Mockups and links are welcome. Remove private paper content and credentials.

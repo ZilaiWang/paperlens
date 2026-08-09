@@ -1,6 +1,6 @@
 """Immersive translation: glossary + protected tokens + batch translate + verify.
 
-Design (改进方案1.md §7):
+Design:
 - never translate by concatenating the whole paper and splitting on newlines;
 - each TranslationUnit keeps source/target alignment and never overwrites blocks;
 - protected tokens ([12], Eq. (3), $x_i$, terms, Table 2) are replaced before
@@ -127,7 +127,7 @@ def _numbers_zh_normalized(text: str) -> list[str]:
 
 
 def verify_translation(source: str, target: str, tokens: list[ProtectedToken]) -> list[str]:
-    """Programmatic checks before a translation is shown (改进方案1.md §7.2).
+    """Programmatic checks before a translation is shown .
 
     ERROR-level checks (V3.0, restored 2026-08-03): numbers, citations,
     figure/table/equation references must survive the translation; benign
@@ -182,7 +182,7 @@ def verify_translation(source: str, target: str, tokens: list[ProtectedToken]) -
     return issues
 
 
-# --- PaperTranslationProfile (改进方案2.md §13) ------------------------------
+# --- PaperTranslationProfile  ------------------------------
 
 class TranslationEntity(BaseModel):
     model_config = ConfigDict(extra="forbid")

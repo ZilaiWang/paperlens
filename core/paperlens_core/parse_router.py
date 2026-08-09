@@ -1,16 +1,13 @@
-"""统一 PDF 解析入口（改进方案3 §3.1 / §6.5，V4.0-4）。
+"""Configured entry point for PDF parsing.
 
-业务代码（jobs、eval）不得直接 import 具体 parser——一律经
-``ParseRouter.parse_pdf`` 进入，解析后端由配置 ``PAPERLENS_PDF_PARSER``
-决定：
+Runtime and evaluation code enter through ``ParseRouter.parse_pdf`` instead of
+importing a concrete parser. ``PAPERLENS_PDF_PARSER`` selects the backend:
 
-- ``hybrid``（默认）：PyMuPDF 几何提取（span/方向/表格遮罩）优先，
-  异常时自动回退 pdfplumber 旧管线（服务器缺 fitz 也能跑）；
-- ``pymupdf``：强制 PyMuPDF；
-- ``pdfplumber``：强制旧管线（回归对比用）。
+- ``hybrid`` prefers PyMuPDF geometry and falls back to pdfplumber;
+- ``pymupdf`` requires the PyMuPDF path;
+- ``pdfplumber`` requires the pdfplumber path for regression comparison.
 
-GROBID / Docling / PP-Structure 属 V4.2 多源融合规划，接口保持在此类
-路由上扩展。
+Additional heavy parsers can be added behind the same interface.
 """
 
 from __future__ import annotations
@@ -24,7 +21,7 @@ logger = logging.getLogger("paperlens.core.parse_router")
 
 
 class ParseRouter:
-    """PDF 解析后端路由；输出形状与 legacy parser 一致（paper + blocks）。"""
+    """Select a PDF parser while preserving the shared paper/block output."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()

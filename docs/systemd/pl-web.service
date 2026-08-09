@@ -1,5 +1,5 @@
 [Unit]
-Description=PaperLens 2.0 Next.js web
+Description=PaperLens Next.js web
 After=network.target
 
 [Service]
@@ -9,7 +9,6 @@ ExecStart=/usr/local/bin/node /home/ubuntu/paperlens/web/node_modules/next/dist/
 Restart=on-failure
 RestartSec=3
 Environment=NODE_ENV=production
-Environment=NEXT_PUBLIC_API_BASE=http://<server-ip>
 
 [Install]
 WantedBy=multi-user.target

@@ -6,13 +6,6 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 
-
-class StrEnum(str, Enum):
-    """Python 3.10 compatible StrEnum (3.11+ has it built in)."""
-
-    def __str__(self) -> str:
-        return str(self.value)
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from .evidence import build_evidence_ledger
@@ -20,6 +13,13 @@ from .llm import StructuredModel
 from .models import QualityAssessment, QualityDimension
 from .prompts import QUALITY_SYSTEM, evidence_package
 from .retrieval import BM25Index
+
+
+class StrEnum(str, Enum):
+    """Python 3.10 compatible StrEnum (3.11+ has it built in)."""
+
+    def __str__(self) -> str:
+        return str(self.value)
 
 
 @dataclass(frozen=True, slots=True)

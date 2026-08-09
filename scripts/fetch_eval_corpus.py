@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""下载评测语料（改进方案3 §十六 / V4.0-7）。
+"""Download and verify the manifest-based parser evaluation corpus.
 
-评测 PDF 有版权约束不入发布包——manifest.json 记录 arXiv ID 与 SHA256，
-本脚本按 manifest 下载并校验完整性：
+Evaluation PDFs are not committed or included in source archives. The manifest
+records each arXiv identifier, URL, and SHA-256 checksum.
 
     python scripts/fetch_eval_corpus.py [--dir tests/eval_corpus]
 """
@@ -47,8 +47,9 @@ def main() -> int:
                 continue
             path.write_bytes(response.content)
             ok += 1
-    print(f"✅ {ok}/{len(manifest['papers'])} 篇就绪")
-    return 0
+    total = len(manifest["papers"])
+    print(f"{ok}/{total} corpus files ready")
+    return 0 if ok == total else 1
 
 
 if __name__ == "__main__":

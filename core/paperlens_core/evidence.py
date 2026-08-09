@@ -140,7 +140,7 @@ def locate_chunk_spans(
 ) -> list[dict[str, object]]:
     """Map a verified quote span inside a chunk back to source blocks.
 
-    改进方案2.md §16.1: a quote at chunk chars 330-438 resolves to its block,
+    : a quote at chunk chars 330-438 resolves to its block,
     block char range, page and physical bboxes so the frontend can highlight
     the exact span in the immersive reader and overlay it on the PDF.
     """

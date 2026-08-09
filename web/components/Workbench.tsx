@@ -110,7 +110,7 @@ interface Translation {
   status: string;
 }
 
-// 图内联缩略图（改进方案2.md §10.2）：进入视口才裁剪，点击打开详情
+// 图内联缩略图：进入视口才裁剪，点击打开详情
 function AssetThumb({
   pdfUrl,
   asset,
@@ -263,9 +263,9 @@ export function Workbench({ paperId }: { paperId: string }) {
   const [meta, setMeta] = useState<PaperMeta | null>(null);
   const [pageQuality, setPageQuality] = useState<PageQualityItem[]>([]);
   const [qualityDismissed, setQualityDismissed] = useState(false);
-  // 渐进阅读（改进方案2.md §18.2）：视口进入触发翻译 + 预取下一页
+  // 渐进阅读：视口进入触发翻译 + 预取下一页
   const [translatingPages, setTranslatingPages] = useState<Set<number>>(new Set());
-  // 证据定位（改进方案2.md §16.3）：沉浸模式高亮字符区间 / 原版模式 bbox overlay
+  // 证据定位：沉浸模式高亮字符区间 / 原版模式 bbox overlay
   const [highlight, setHighlight] = useState<{
     key: number;
     blockId: string;
@@ -336,7 +336,7 @@ export function Workbench({ paperId }: { paperId: string }) {
     [assets]
   );
 
-  // 语义序渲染（改进方案2.md §10.1）：caption 文本 → 资产映射，图内联插回
+  // 语义序渲染：caption 文本 → 资产映射，图内联插回
   const captionToAsset = useMemo(() => {
     const map = new Map<string, AssetIR>();
     for (const asset of assets) {
@@ -534,7 +534,7 @@ export function Workbench({ paperId }: { paperId: string }) {
     return () => observer.disconnect();
   }, [displayMode, pages.length, translateVisible]);
 
-  // 进入后自动持续翻译剩余内容直到结束（改进方案2.md §18.2）：
+  // 进入后自动持续翻译剩余内容直到结束：
   // PDF 论文从第 4 页继续；HTML 论文没有物理页（pageCount=1），
   // translate(page 1) 会覆盖全部段落 —— 未翻译的自动补上（V3.7）
   useEffect(() => {
@@ -636,7 +636,7 @@ export function Workbench({ paperId }: { paperId: string }) {
     [callouts, referenceById, highlight]
   );
 
-  // 证据反向定位（改进方案2.md §16.3）：沉浸模式滚动 + 字符区间高亮，
+  // 证据反向定位：沉浸模式滚动 + 字符区间高亮，
   // 原版模式交给 PdfViewer 做 bbox overlay。
   const locateEvidence = useCallback(
     (locator: EvidenceLocator) => {
@@ -715,7 +715,7 @@ export function Workbench({ paperId }: { paperId: string }) {
     [importingRef]
   );
 
-  // 在线身份核验（Crossref/arXiv 瀑布式匹配，改进方案2.md §11.4）
+  // 在线身份核验（Crossref/arXiv 瀑布式匹配，）
   const resolveReference = useCallback(
     async (referenceId: string) => {
       if (resolvingRef) return;
@@ -866,7 +866,7 @@ export function Workbench({ paperId }: { paperId: string }) {
         </div>
       )}
 
-      {/* 解析质量门（改进方案2.md §8）：低可信页面如实展示，不悄悄假装正确 */}
+      {/* 解析质量门：低可信页面如实展示，不悄悄假装正确 */}
       {!qualityDismissed && pageQuality.some((item) => item.verdict !== "GOOD") && (
         <div className="px-4 py-2 text-sm text-amber-700 bg-amber-50 border-b border-amber-100 flex items-center gap-3">
           <span className="shrink-0">⚠</span>
@@ -1277,7 +1277,7 @@ export function Workbench({ paperId }: { paperId: string }) {
                         </div>
                       );
                     }
-                    // 语义序渲染（改进方案2.md §10.1）：caption 与图内联插回正文流
+                    // 语义序渲染：caption 与图内联插回正文流
                     if (block.block_type === "CAPTION") {
                       const asset = captionToAsset.get(block.text.trim());
                       return (

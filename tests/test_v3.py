@@ -154,7 +154,6 @@ class TestChunkSegments:
         # V4.1：_legacy_chunks 桥已删除——documents.Chunk 直接进 reader 路径，
         # 存储 payload（含 segments）必须能直接 model_validate 且段信息无损
         from paperlens_core.documents import Chunk as IRChunk
-        from paperlens_core.documents import ChunkSegment as IRCS
 
         stored = {
             "chunk_id": "c1",
@@ -396,9 +395,10 @@ class TestTranslateEndpoint:
         # regression (fix 2026-08-04): missing TranslationStatus import made
         # every translate request 500 with NameError before touching the model
         from fastapi.testclient import TestClient
-
         from paperlens_core.documents import (
             Block as IRBlock,
+        )
+        from paperlens_core.documents import (
             Paper,
             PaperVersion,
             TranslationStatus,
@@ -512,9 +512,8 @@ class TestFormulaExtraction:
         assert "https://arxiv.org/html/1706.03762/x1.png" in uris
 
     def test_inline_math_replaces_mathml_text(self) -> None:
-        from paperlens_core.arxiv_html import _node_text_with_math
-
         from lxml import html as lxml_html
+        from paperlens_core.arxiv_html import _node_text_with_math
 
         html = '<div class="ltx_para"><p>score <math alttext="P_{i}">MML</math> is best</p></div>'
         tree = lxml_html.fromstring(html)
@@ -708,8 +707,8 @@ class TestDraftCache:
     def test_repeat_question_skips_second_draft_call(self) -> None:
         from paperlens_core.evidence import sha256_text
         from paperlens_core.llm import StaticJSONModel
+        from paperlens_core.models import AnswerClaim, AnswerDraft, EvidenceLink
         from paperlens_core.reader import PaperReader
-        from paperlens_core.models import AnswerClaim, AnswerDraft, EvidenceLink, SupportStatus
 
         chunks = self._chunks()
         excerpt = chunks[0].text
@@ -752,8 +751,8 @@ class TestDraftCache:
 
     def test_different_namespace_misses_cache(self) -> None:
         from paperlens_core.llm import StaticJSONModel
+        from paperlens_core.models import AnswerClaim, AnswerDraft, EvidenceLink
         from paperlens_core.reader import PaperReader
-        from paperlens_core.models import AnswerClaim, AnswerDraft, EvidenceLink, SupportStatus
 
         chunks = self._chunks()
         excerpt = chunks[0].text

@@ -1,7 +1,6 @@
 """SQLite repository for DocumentIR entities and server state.
 
-JSON-document storage keeps the v2 schema explicit and simple; PostgreSQL and
-row-level security arrive in the cloud milestone (P6).
+JSON-document storage keeps the single-process schema explicit and simple.
 """
 
 from __future__ import annotations
@@ -13,16 +12,10 @@ from pathlib import Path
 
 from paperlens_core.documents import (
     Annotation,
-    Asset,
-    Block,
-    Chunk,
     Paper,
     PaperVersion,
-    Reference,
-    Section,
-    TranslationUnit,
 )
-from paperlens_core.jobs import Job, JobStatus
+from paperlens_core.jobs import Job
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS papers (
@@ -97,7 +90,7 @@ CREATE TABLE IF NOT EXISTS comparisons (
     payload TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT ''
 );
--- V4.6-2（改进方案3 §14.1）：用户库条目——论文全局去重，收藏/归属按用户
+-- V4.6-2：用户库条目——论文全局去重，收藏/归属按用户
 CREATE TABLE IF NOT EXISTS user_papers (
     user_id TEXT NOT NULL,
     paper_id TEXT NOT NULL,

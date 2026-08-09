@@ -1,4 +1,4 @@
-"""PyMuPDF geometry adapter (V3.0B, 改进方案2.md §5-§6).
+"""PyMuPDF span-level geometry adapter.
 
 Replaces the pdfplumber word-then-fixed-gap line extraction with PyMuPDF
 span-level extraction that keeps per-span font, size, bold and text
@@ -13,14 +13,15 @@ direction. Fixes the fragment-first problems:
 The output uses the existing Block model so the downstream pipeline
 (paragraph rebuild, sections, chunks) is unchanged.
 
-AGPL note: PyMuPDF is AGPL-licensed; it is used as a geometry extractor in
-this course project. The project's own code remains MIT.
+PyMuPDF is an optional dependency distributed upstream under AGPL/commercial
+terms. See the repository's third-party notices before distribution or hosted
+use.
 """
 
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from .models import Block, BlockType

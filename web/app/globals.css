@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* PaperLens 2.0 visual language (改进方案1.md §19):
+/* PaperLens visual language:
    quiet background, restrained indigo accent, serif paper body, sans UI. */
 :root {
   --pl-bg: #f7f7f5;
@@ -12,7 +12,7 @@
   --pl-translation-bg: #f0f4f8;
   --pl-serif: Georgia, "Times New Roman", "Noto Serif SC", serif;
 
-  /* 统一 motion token（改进方案2.md §19.1）：组件不再各自写 200ms/ease */
+  /* 统一 motion token：组件不再各自写 200ms/ease */
   --motion-fast: 120ms;
   --motion-base: 180ms;
   --motion-slow: 260ms;
@@ -57,7 +57,7 @@ body {
   animation: pl-fade 0.25s ease-out;
 }
 
-/* 引用点击后参考文献条目短暂高亮（改进方案2.md §19.2） */
+/* 引用点击后参考文献条目短暂高亮 */
 @keyframes pl-ref-flash {
   0% {
     background-color: #bcd4ee;
@@ -93,7 +93,7 @@ mark.pl-evidence.flashing {
   animation: pl-evidence-flash 1.2s var(--ease-standard);
 }
 
-/* Agent claim 卡片逐条出现（改进方案2.md §19.2） */
+/* Agent claim 卡片逐条出现 */
 @keyframes pl-claim-enter {
   from {
     opacity: 0;
@@ -142,7 +142,7 @@ mark.pl-evidence.flashing {
   animation-delay: 0.32s;
 }
 
-/* 无障碍（改进方案2.md §19.3） */
+/* 无障碍 */
 :focus-visible {
   outline: 2px solid var(--pl-accent);
   outline-offset: 2px;

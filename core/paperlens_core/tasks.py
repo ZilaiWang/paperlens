@@ -1,8 +1,6 @@
-"""任务定义注册表（改进方案3 §九，V4.3-3）。
+"""Versioned task definitions for retrieval and section emphasis.
 
-预设问题不再是"更好看的 Prompt"——服务端维护版本化任务定义：
-retrieval 侧重词（并入检索查询）与 section 侧重（并入检索提示）。
-结构化输出与独立核验策略随各旗舰功能（V4.4）演进。
+Preset tasks affect retrieval intent; they are not presentation-only prompts.
 """
 
 from __future__ import annotations

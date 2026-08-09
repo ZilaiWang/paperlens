@@ -1,5 +1,5 @@
 [Unit]
-Description=PaperLens 2.0 FastAPI server
+Description=PaperLens FastAPI server
 After=network.target
 
 [Service]
