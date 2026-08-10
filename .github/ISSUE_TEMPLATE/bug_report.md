@@ -1,30 +1,40 @@
 ---
 name: Bug report
-about: 反馈一个问题，帮助我们改进
+about: Report a reproducible PaperLens problem
 title: "[Bug] "
 labels: bug
 assignees: ""
 ---
 
-**描述问题**
-清晰简洁地描述这个 bug 是什么。
+## Description
 
-**复现步骤**
-1. 打开 ...
-2. 点击 ...
-3. 看到错误 ...
+What happened, and what did you expect instead?
 
-**期望行为**
-你期望发生什么？
+## Reproduction
 
-**实际行为**
-实际发生了什么？（附上错误信息或截图）
+1. Source type: PDF upload or arXiv identifier
+2. Action taken
+3. Observed result
 
-**环境**
-- 部署方式：本地 / 服务器
-- 论文来源：PDF 上传 / arXiv 链接
-- 浏览器与版本（前端问题）
-- Python / Node 版本（本地部署问题）
+Use a public arXiv identifier or a minimal synthetic fixture. Do not attach a
+private or copyrighted PDF unless its license explicitly permits redistribution.
 
-**其他上下文**
-任何其他相关信息。
+## Environment
+
+- PaperLens commit or version:
+- Operating system:
+- Python version:
+- Bun/browser version, if relevant:
+- Parser setting (`hybrid`, `pymupdf`, or `pdfplumber`):
+- Model provider and model name, if relevant (never include the API key):
+
+## Logs or screenshots
+
+Paste the smallest relevant excerpt. Remove credentials, filesystem secrets,
+paper text you cannot share, and personal data.
+
+## Checks performed
+
+- [ ] I searched existing issues.
+- [ ] I removed secrets and private document content.
+- [ ] This is not a security vulnerability. Security reports follow `SECURITY.md`.

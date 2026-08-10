@@ -1,7 +1,6 @@
-"""Table structure helpers shared by the HTML and PDF paths (V3.12).
+"""Table structure helpers shared by the HTML and PDF paths.
 
-改进方案2.md §10.3: every table asset carries a structured cell matrix and a
-CSV export so the UI can render a real table and offer one-click download.
+Every table asset can carry a structured cell matrix and CSV export.
 rowspan cells are carried into later rows (their text is repeated) so the
 CSV is rectangular and lossless enough for analysis tools.
 """

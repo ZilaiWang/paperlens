@@ -23,22 +23,16 @@ class Settings(BaseSettings):
     paperlens_model: str = "qwen2.5-7b-instruct"
     paperlens_temperature: float = Field(default=0.1, ge=0, le=1)
     paperlens_max_output_tokens: int = Field(default=1800, ge=128, le=8192)
-    paperlens_embedding_model: str = ""
     paperlens_disable_thinking: bool = False
     paperlens_data_dir: Path = Path(".paperlens")
     paperlens_max_pdf_mb: int = Field(default=80, ge=1, le=500)
     paperlens_top_k: int = Field(default=8, ge=1, le=30)
-    # V4.0-4（改进方案3 §3.1）：PDF 解析后端。
+    # V4.0-4：PDF 解析后端。
     # hybrid = PyMuPDF 几何提取优先，失败自动回退 pdfplumber；
     # pymupdf / pdfplumber = 强制指定。GROBID/Docling 属 V4.2 规划。
     paperlens_pdf_parser: str = "hybrid"
 
-    openalex_api_key: str = ""
-    semantic_scholar_api_key: str = ""
-    ncbi_api_key: str = ""
-    unpaywall_email: str = ""
     contact_email: str = ""
-    grobid_url: str = ""
 
     @property
     def database_path(self) -> Path:

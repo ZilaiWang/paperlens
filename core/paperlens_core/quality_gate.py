@@ -1,4 +1,4 @@
-"""Per-page parse quality gate (改进方案2.md §8).
+"""Deterministic per-page parse quality gate.
 
 After parsing, each page gets a verdict instead of silently presenting
 fragmented layout as correct output. The metrics are deterministic and
@@ -70,7 +70,7 @@ class PageQuality(BaseModel):
     char_coverage: int
     verdict: Literal["GOOD", "SUSPECT", "LOW"]
     fallback_reasons: list[str] = Field(default_factory=list)
-    # V4.2（改进方案3 §6.4）：Active Quality Gate 融合后记录本页最终
+    # V4.2：Active Quality Gate 融合后记录本页最终
     # 采用的解析引擎（"pymupdf"/"pdfplumber"/"" = 主引擎未融合）
     resolved_by: str = ""
 
@@ -167,7 +167,7 @@ def fuse_page_candidates(
     primary_engine: str = "pymupdf",
     alternate_engine: str = "pdfplumber",
 ) -> tuple[list[Block], dict[int, str]]:
-    """V4.2 Active Quality Gate（改进方案3 §6.4）：页级候选融合。
+    """V4.2 Active Quality Gate：页级候选融合。
 
     对 LOW/SUSPECT 页比较主/备引擎的页级质量（verdict 优先、次之
     fallback 数量），严格更优才换用备选；备选引擎无该页内容时保留主

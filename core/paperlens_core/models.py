@@ -1,31 +1,28 @@
-"""Typed domain models shared by deterministic and LLM-assisted modules.
+"""Compatibility exports and models shared by evidence workflows.
 
-V4.1（改进方案3 §3.2/§五）：DocumentGraph 统一——documents.py 是唯一事实源，
-重复实体（Block/BlockType/Chunk/ChunkSegment/Section/ParseStatus/
-ReferenceIdentity/StrEnum）在此 re-export，legacy 消费者无需改动。
-本文件保留两类专属模型：解析输出元信息（Paper，V4.2 演进为 ParseRun）与
-QA/证据内核模型（AnswerDraft/EvidenceItem/...）。
+Document entities are defined in ``documents.py`` and re-exported here for
+existing consumers. This module additionally owns parsing metadata and the
+question-answering/evidence models.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from datetime import timezone as _tz
-
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from .documents import (
     Block,
-    BlockType,
     Chunk,
-    ChunkSegment,
     ParseStatus,
     ReferenceIdentity,
     Section,
     StrEnum,
 )
+from .documents import BlockType as BlockType
+from .documents import ChunkSegment as ChunkSegment
 
 
 def utc_now_iso() -> str:
@@ -50,7 +47,7 @@ class Paper(BaseModel):
 
 
 class ParseRun(BaseModel):
-    """V4.2（改进方案3 §五/§十七）：一次解析运行的可追溯记录。
+    """V4.2：一次解析运行的可追溯记录。
 
     记录实际使用的解析管线、页级质量与 Active Quality Gate 的融合决策，
     随版本持久化（documents kind="parse_run"）。
@@ -116,7 +113,7 @@ class EvidenceLink(BaseModel):
     char_end: int = Field(gt=0)
     quote_sha256: str = ""
     support_status: SupportStatus | None = None
-    # precise reverse location (改进方案2.md §16.1): block + block char range +
+    # precise reverse location : block + block char range +
     # page + physical bboxes, filled by EvidenceGuard after quote validation
     locators: list[dict[str, object]] = Field(default_factory=list)
 

@@ -1,4 +1,4 @@
-// Client-side PDF page crop (改进方案1.md §11.2): the PDF.js canvas is the
+// Client-side PDF page crop : the PDF.js canvas is the
 // rasterizer, so no server-side poppler/PyMuPDF dependency is needed. The
 // crop is exported as PNG for the "download figure/table" feature.
 //

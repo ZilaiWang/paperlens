@@ -253,7 +253,7 @@ export const api = {
         }),
       }
     ),
-  // SSE: claims stream in as they are verified (改进方案2.md §19.2)
+  // SSE: claims stream in as they are verified
   streamChat: async (
     sessionId: string,
     question: string,

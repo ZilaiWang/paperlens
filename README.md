@@ -1,87 +1,164 @@
+<div align="center">
+
 # PaperLens
 
-> 证据可追溯的学术论文阅读工作台：上传 PDF 或 arXiv 链接，获得结构化解析、双语阅读、证据定位问答、质量评估与多篇对比。
+**An evidence-grounded workspace for reading and comparing research papers.**
 
-[![CI](https://github.com/ZilaiWang/paperlens/actions/workflows/ci.yml/badge.svg)](https://github.com/ZilaiWang/paperlens/actions)
+Upload a PDF or import an arXiv paper, then read, translate, ask questions,
+inspect citations, and compare papers without losing the path back to the source.
+
+[简体中文](README.zh-CN.md) · [Documentation](docs/README.md) ·
+[Contributing](CONTRIBUTING.md) · [Roadmap](docs/roadmap.md)
+
+[![CI](https://github.com/ZilaiWang/paperlens/actions/workflows/ci.yml/badge.svg)](https://github.com/ZilaiWang/paperlens/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)](core/pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-PaperLens 把论文 PDF 当作**文档对象**处理，而不是直接丢给大模型。系统先通过确定性解析恢复论文结构（段落、章节、图表、公式、参考文献），再基于结构做检索与语言分析——回答的每条主张都能跳回原文精确位置。
+</div>
 
-## 核心特性
+## Why PaperLens?
 
-| 特性 | 说明 |
-|---|---|
-| **双路径解析** | PyMuPDF span 级几何提取 + pdfplumber 兜底，页级质量门双引擎融合；arXiv LaTeXML HTML Source-first（老论文自动回退 PDF） |
-| **文档原生阅读** | 三栏工作台：资源轨（目录/图/表/参考文献）、沉浸式双语正文、Agent 问答面板 |
-| **章节与媒体** | 章节识别（字号/加粗候选 + 上下文继承）；表格掩膜 + 占位块；公式 KaTeX 渲染 |
-| **渐进式翻译** | 术语表一致性（漂移检测选择性修复）、公式/引用占位保护、批次并发、逐批持久化 |
-| **证据问答** | 自研 BM25 段落级检索 → 原子主张 → 确定性证据门 + 逐主张语义核验 → 证据账本定位跳转 |
-| **质量评估** | 独立子 Agent 按 7 维度打分，正分必须附证据 ID，总分程序计算 |
-| **多篇比较** | 主题对齐 → 13 维度字段抽取（默认 5 核心）→ 结构化结果对比，多篇并发 |
-| **参考文献链路** | 自动提取 → 风格感知格式检查（13 种问题）→ Crossref/arXiv 在线核验 → 一键导入 |
+Academic PDFs are not plain text. Reading order, columns, equations, tables,
+citations, and page geometry all matter. Sending an entire PDF directly to a
+language model often destroys that structure and makes answers difficult to
+verify.
 
-## 架构
+PaperLens first builds a deterministic document representation. Retrieval and
+language-model workflows operate on that representation, and evidence links
+connect generated claims back to exact blocks, character spans, pages, and PDF
+coordinates.
 
-```text
-core/     evidence kernel（paperlens_core）
-  ├── documents.py     DocumentIR 实体（Block/Section/Asset/TranslationUnit/...）
-  ├── paragraphs.py     双栏感知段落重建
-  ├── sections.py       章节识别
-  ├── retrieval.py      BM25 段落级索引
-  ├── reader.py         证据问答主工作流（检索→主张→核验→组织）
-  ├── translation.py    渐进式翻译
-  ├── quality.py        质量评估子 Agent
-  ├── comparison.py     多篇比较
-  └── references.py     参考文献提取/格式检查/核验
-server/   FastAPI 后端（上传/arXiv 导入/Job+SSE/文档/翻译/问答/质量/比较/引用）
-web/      Next.js 16 前端（首页 + 三栏工作台 + PDF.js 原版模式）
-scripts/  评测与工具脚本
-docs/     部署、里程碑、nginx/systemd 配置
-```
+## What it can do
 
-## 快速开始
+- **Structured import:** upload PDF files or import arXiv papers. Modern arXiv
+  pages use structured HTML first; PDF parsing remains the fallback.
+- **Layout-aware parsing:** combine PyMuPDF geometry with pdfplumber fallback,
+  reconstruct multi-column paragraphs, detect sections, and preserve media and
+  formula placeholders.
+- **Bilingual reading:** translate incrementally with terminology, citation,
+  number, and formula protection.
+- **Grounded Q&A:** retrieve paragraph-level evidence with BM25, draft atomic
+  claims, run deterministic and model-based attribution checks, then link every
+  accepted claim to its source.
+- **Paper analysis:** build method graphs, structured experiment records,
+  evidence-bound profiles, and quality assessments.
+- **Cross-paper comparison:** compare two or three paper versions, distinguish
+  missing evidence from confirmed absence, and avoid ranking incomparable
+  metrics or datasets.
+- **Reference workflow:** extract references, lint citation formatting, resolve
+  identities through scholarly APIs, and import public arXiv sources.
 
-### 后端
+## Quick start
+
+### Requirements
+
+- Python 3.10 or newer
+- [Bun](https://bun.sh/) 1.3 or newer
+- An OpenAI-compatible chat-completions endpoint for translation and analysis
+  features; parsing and offline tests do not require a model
+
+### Run locally
 
 ```bash
+git clone https://github.com/ZilaiWang/paperlens.git
+cd paperlens
+
 python3 -m venv .venv
-.venv/bin/pip install -e core fastapi "uvicorn[standard]" python-multipart
-cp .env.example .env    # 配置 OpenAI 兼容端点（DeepSeek / Ollama 等）
-.venv/bin/uvicorn server.app.main:app --port 8700
+.venv/bin/pip install -e "core[server,dev]"
+# Optional enhanced geometry/table path; review its AGPL/commercial license.
+.venv/bin/pip install -e "core[pymupdf]"
+cp .env.example .env
+.venv/bin/uvicorn server.app.main:app --reload --port 8700
 ```
 
-### 前端（需要 bun）
+In a second terminal:
 
 ```bash
 cd web
-bun install
+bun install --frozen-lockfile
 NEXT_PUBLIC_API_BASE=http://127.0.0.1:8700 bun run dev
 ```
 
-打开 http://127.0.0.1:3000 上传 PDF 或粘贴 arXiv 链接即可。
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000). The API schema is
+available at [http://127.0.0.1:8700/docs](http://127.0.0.1:8700/docs).
 
-### 测试
+The default `.env.example` points to a local OpenAI-compatible endpoint. Update
+`OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `PAPERLENS_MODEL` for your provider.
+See the [configuration reference](docs/configuration.md) for every supported
+setting.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    UI["Next.js web"] --> API["FastAPI API"]
+    API --> JOBS["Jobs and SSE events"]
+    JOBS --> CORE["paperlens_core"]
+    CORE --> IR["DocumentIR"]
+    IR --> RETRIEVAL["BM25 and evidence ledger"]
+    RETRIEVAL --> LLM["Bounded LLM workflows"]
+    API --> DB["SQLite and local files"]
+```
+
+The repository is a small polyglot monorepo:
+
+```text
+core/       Python domain library: parsing, DocumentIR, retrieval, analysis
+server/     FastAPI transport, persistence adapters, jobs, and application services
+web/        Next.js reader and comparison interface
+scripts/    Reproducible evaluation and release utilities
+tests/      Offline regression tests and downloadable corpus manifest
+docs/       User, operator, contributor, architecture, and decision documentation
+```
+
+Read [Architecture](docs/architecture.md) for data flow, module boundaries, and
+the rules intended to keep the project evolvable.
+
+## Development
 
 ```bash
-.venv/bin/python -m pytest tests/ -q     # 72 项离线测试（无网络/LLM 依赖）
+.venv/bin/ruff check core server scripts tests
+.venv/bin/python -m pytest
+cd web && bun run build
+```
+
+The evaluation PDFs are intentionally not stored in Git. Download and verify
+them from the checked-in manifest when needed:
+
+```bash
+.venv/bin/python scripts/fetch_eval_corpus.py
 .venv/bin/python scripts/eval_parse.py --corpus tests/eval_corpus
 ```
 
-评测语料通过 `scripts/fetch_eval_corpus.py` 按 manifest 下载（arXiv ID + SHA256 校验）。
+See [Development](docs/development.md), [Testing](docs/testing.md), and
+[Contributing](CONTRIBUTING.md) before opening a pull request.
 
-## 文档
+## Project status and limitations
 
-- `DESIGN.md` — 架构设计（三层：文档理解/证据检索/语言分析）
-- `REQUIREMENTS.md` — 功能需求与非功能需求
-- `ANALYSIS.md` — 方案选型与已知边界
-- `DEPLOY.md` — 服务器部署（systemd + nginx）
-- `SUMMARY.md` — 迭代历程与性能优化
-- `CHANGELOG.md` — 版本记录
+PaperLens 1.0 is usable as a self-hosted, single-process application. It is not
+yet a multi-tenant cloud service. SQLite, in-process jobs, permissive development
+CORS, and the absence of built-in authentication are deliberate current
+constraints. Do not expose the API directly to the public internet without an
+authentication layer and a restrictive reverse-proxy configuration.
 
-## 技术栈
+Complex borderless tables, scanned PDFs, formula OCR, and unusual multi-column
+layouts can still produce partial parses. PaperLens reports parse and evidence
+gaps rather than treating missing extraction as proof that a paper omitted
+something.
 
-Python 3.10+ · FastAPI · SQLite · PyMuPDF / pdfplumber · Next.js 16 · pdf.js · DeepSeek API（OpenAI 兼容）
+See [Roadmap](docs/roadmap.md) for the planned modularization and scaling path.
+
+## Community and security
+
+- Use [GitHub Issues](https://github.com/ZilaiWang/paperlens/issues) for bugs and
+  feature proposals.
+- Read [SECURITY.md](SECURITY.md) before reporting a vulnerability.
+- Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## License
 
-MIT — 详见 [LICENSE](LICENSE)。
+PaperLens is released under the [MIT License](LICENSE). Papers imported by users
+remain subject to their original licenses and terms; PaperLens does not grant
+redistribution rights for third-party documents. Optional PyMuPDF support is
+dual-licensed under AGPL/commercial terms; review
+[third-party notices](THIRD_PARTY_NOTICES.md) before distribution or hosted use.

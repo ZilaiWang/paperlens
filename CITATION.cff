@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use PaperLens in academic work, please cite the software."
+title: "PaperLens: an evidence-grounded academic paper reading workspace"
+type: software
+authors:
+  - family-names: Wang
+    given-names: Zilai
+repository-code: "https://github.com/ZilaiWang/paperlens"
+url: "https://github.com/ZilaiWang/paperlens"
+license: MIT
+version: 1.0.0
+date-released: 2026-08-07

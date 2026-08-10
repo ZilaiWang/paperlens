@@ -85,7 +85,7 @@ export function AgentPanel({
     setStatusState(text);
   };
 
-  // V4.0-3（改进方案3 §3.4/§十五-1）：进入论文恢复最近会话（刷新后对话
+  // V4.0-3：进入论文恢复最近会话（刷新后对话
   // 完整、多轮不丢），无会话才新建；恢复时加载历史消息
   useEffect(() => {
     sessionPromiseRef.current = api
@@ -227,7 +227,7 @@ export function AgentPanel({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // SSE streaming: claims appear as they are verified (改进方案2.md §19.2);
+  // SSE streaming: claims appear as they are verified ;
   // the buffered POST is the fallback when streaming fails.
   const runQuestion = useCallback(
     async (question: string) => {

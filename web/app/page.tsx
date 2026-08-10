@@ -64,9 +64,8 @@ export default function HomePage() {
   }, [refresh]);
 
   // Follow a parse job; navigate to the paper when it succeeds.
-  // The job carries paper_id, so we never guess from list order (改进方案2.md
-  // §18.2); progressive translation happens inside the workbench instead of
-  // blocking the entry here.
+  // The job carries paper_id, so we never guess from list order; progressive
+  // translation happens inside the workbench instead of blocking the entry.
   const watchJob = useCallback(
     (jobId: string) => {
       setBusy(true);
@@ -109,7 +108,7 @@ export default function HomePage() {
     if (busy) return;
     try {
       const result = await api.upload(file);
-      // 上传时会自动按文件名/标题搜 arXiv（改进方案2.md §4.1）：
+      // 上传时会自动按文件名/标题搜 arXiv：
       // 命中 HTML 版本就走语义解析，否则回退 PDF 管线
       setMatchedArxiv(
         result.matched_arxiv ? `已匹配 arXiv ${result.matched_arxiv}，使用语义解析` : ""

@@ -1,14 +1,14 @@
-"""Experiment Explorer（改进方案3 §十·功能二，V4.4）。
+"""Deterministically extract experiment records from structured table assets.
 
-结构化结果记录：从已结构化表格资产（structured_data.rows）确定性提取
-ResultRecord（dataset/metric/value/table 定位），无需 LLM——表格行即条件
-键。图/公式数值暂不覆盖（V4.4 核心为表格链路）。
+ResultRecord preserves dataset, metric, value, and table location without an
+LLM. Figures, formulas, and borderless table images are not interpreted here.
 """
 
 from __future__ import annotations
 
 import re
-from pydantic import BaseModel, ConfigDict, Field
+
+from pydantic import BaseModel, ConfigDict
 
 from .documents import Asset, AssetKind
 

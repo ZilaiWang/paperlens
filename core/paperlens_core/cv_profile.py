@@ -1,5 +1,4 @@
-"""CVPaperProfile: one evidence-grounded profile driving overview/method/
-datasets/metrics/results/ablations/reproducibility/limitations (改进方案1.md §13).
+"""Evidence-grounded profile for overview and analysis features.
 
 Every field carries status + value + evidence_links; the profile is built once
 per paper and reused by quality audit and multi-paper comparison instead of
@@ -47,7 +46,7 @@ class CVProfileDraft(BaseModel):
 
 
 class UnderstandingArtifact(BaseModel):
-    """V4.3-2（改进方案3 §十一）：版本化论文理解产物。
+    """V4.3-2：版本化论文理解产物。
 
     单篇概览/质量/问答/多篇比较共享的事实源——随版本持久化
     （documents kind="understanding_artifact"），带 schema/extractor 版本
@@ -100,7 +99,7 @@ class CVProfileBuilder:
     ) -> CVProfileDraft:
         index = BM25Index(chunks)  # type: ignore[arg-type]
         hits_by_id: dict[str, object] = {}
-        for field, query in FIELD_QUERIES.items():
+        for _field, query in FIELD_QUERIES.items():
             for hit in index.search(query, top_k=4):
                 hits_by_id[hit.chunk.chunk_id] = hit
         hits = sorted(hits_by_id.values(), key=lambda hit: (hit.chunk.page_start, hit.rank))
@@ -135,7 +134,7 @@ class CVProfileBuilder:
             temperature=0.0,
         )
         # deterministic gate: strip unknown evidence ids and downgrade status
-        for field_name, field in draft.model_dump(mode="python").items():
+        for field_name in FIELD_QUERIES:
             field_obj = getattr(draft, field_name)
             invalid = [eid for eid in field_obj.evidence_ids if eid not in known_ids]
             if invalid:

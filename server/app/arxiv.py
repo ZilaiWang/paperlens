@@ -1,4 +1,4 @@
-"""arXiv metadata lookup and PDF download (改进方案1.md §4.2).
+"""Validated arXiv metadata lookup and PDF download.
 
 Only whitelisted id formats are accepted; download validates MIME, PDF magic,
 size and computes SHA-256. No arbitrary URLs (SSRF guard).
@@ -11,8 +11,6 @@ import re
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-
-import httpx
 
 ARXIV_ID_RE = re.compile(r"^\d{4}\.\d{4,5}(v\d+)?$")
 ARXIV_API = "https://export.arxiv.org/api/query"

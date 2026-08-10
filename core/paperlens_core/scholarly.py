@@ -643,7 +643,7 @@ class ScholarlyClient:
         return returned
 
     def search_arxiv_by_title(self, title: str, max_results: int = 5) -> list[ScholarlyMetadata]:
-        """Title search on the arXiv API (改进方案2.md §4.1 Source-first).
+        """Title search on the arXiv API .
 
         Used by the upload route to discover an HTML-capable version of a
         submitted PDF. Polite-pool rate limiting applies (3s between arXiv
@@ -781,8 +781,8 @@ class ScholarlyClient:
             )
 
         # arXiv preprints carry DataCite DOIs and are absent from Crossref, so
-        # an arXiv id inside the raw text takes the exact path (改进方案2.md
-        # §11.4) before the fuzzy Crossref search.
+        # an arXiv id inside the raw text takes the exact path before the fuzzy
+        # Crossref search.
         extracted = extract_arxiv_id(reference.raw_text)
         if extracted:
             metadata = self.lookup_arxiv(extracted)

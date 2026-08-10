@@ -1,4 +1,4 @@
-"""Long-running job model with real per-stage progress (改进方案1.md §5).
+"""Long-running job model with real per-stage progress.
 
 Progress is never a fake timer: every stage carries a fixed weight and the
 stage itself reports its own completion ratio (e.g. "layout 18/29 pages").
@@ -7,6 +7,9 @@ stage itself reports its own completion ratio (e.g. "layout 18/29 pages").
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class StrEnum(str, Enum):
@@ -14,9 +17,6 @@ class StrEnum(str, Enum):
 
     def __str__(self) -> str:
         return str(self.value)
-from typing import Any
-
-from pydantic import BaseModel, Field
 
 
 class JobType(StrEnum):
@@ -38,7 +38,7 @@ class JobStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
-# Fixed stage weights (改进方案1.md §5.1). Sum == 1.0.
+# Fixed stage weights. Sum == 1.0.
 JOB_STAGE_WEIGHTS: dict[str, float] = {
     "file_validation": 0.05,
     "metadata_and_pages": 0.10,

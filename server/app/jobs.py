@@ -1,7 +1,7 @@
 """Background job execution with real per-stage progress events.
 
-One thread per job for now (SQLite-safe, single process); the cloud milestone
-moves this to a worker process with PostgreSQL-backed queues (P6).
+One thread per job is supported in the current single-process deployment. A
+durable worker and event backend is required before horizontal scaling.
 """
 
 from __future__ import annotations
@@ -116,7 +116,7 @@ def translate_initial_pages(
     repository: Repository, version: PaperVersion, job: Job, pages: list[int] | None = None
 ) -> int:
     """initial_translation stage: really translate the first pages inside the
-    parse job (改进方案2.md §18.2). The home progress bar shows this stage
+    parse job . The home progress bar shows this stage
     with real work, and the workbench opens with pages 1-5 already readable;
     the workbench then keeps translating the rest automatically.
     """
@@ -370,7 +370,7 @@ def create_arxiv_html_job(
         page_count=0,
         created_at=now_iso(),
     )
-    # V4.6-2（改进方案3 §14.1）：用户库登记（论文全局，收藏/归属按用户）
+    # V4.6-2：用户库登记（论文全局，收藏/归属按用户）
     repository.add_user_paper(user_id, paper_id)
     repository.create_version(version)
     job.paper_id = paper_id
@@ -433,7 +433,7 @@ def create_arxiv_html_job(
     references = parse_bibliography(html_text, version_id=version_id)
     repository.store_document(version_id, "references", references)
 
-    # 元信息 + 图/表资产（改进方案2.md §18.2 / V3.6）：arXiv HTML 直接提供
+    # 元信息 + 图/表资产：arXiv HTML 直接提供
     # 标题/作者/摘要与真实图 URL，展示页按 arXiv 风格渲染。
     # V4.0-5：此处曾与 PDF attach 后的同名块重复（重复下载 + 重复存储），
     # 已删除前一份，本份为唯一事实源
@@ -479,7 +479,7 @@ def create_arxiv_html_job(
     job.mark_stage("assets", status=JobStatus.SUCCEEDED, ratio=1.0, detail="图表资产就绪")
     repository.update_job(job)
 
-    # bind in-text [n] citations to the ReferenceEntry records (改进方案2.md §11.2)
+    # bind in-text [n] citations to the ReferenceEntry records
     callouts = extract_callouts_html(version_id, blocks, len(references))
     repository.store_document(
         version_id,
@@ -605,7 +605,7 @@ def create_parse_job(
     job.paper_id = paper_id
     job.paper_version_id = version_id
     repository.update_job(job)
-    # V4.6-2（改进方案3 §14.1）：用户库登记（论文全局，收藏/归属按用户）
+    # V4.6-2：用户库登记（论文全局，收藏/归属按用户）
     repository.add_user_paper(user_id, paper_id)
     bus.publish(job.job_id, {"event": "stage_started", "job_id": job.job_id, "stage": "metadata_and_pages"})
 
@@ -651,7 +651,7 @@ def create_parse_job(
         {"event": "stage_progress", "job_id": job.job_id, "stage": "layout_and_text", "progress": 0.25},
     )
 
-    # V4.2 Active Quality Gate（改进方案3 §6.4）：先评估，LOW/SUSPECT 页
+    # V4.2 Active Quality Gate：先评估，LOW/SUSPECT 页
     # 用另一引擎重解析并页级融合，再评估——章节识别基于融合后的 blocks
     from paperlens_core.quality_gate import assess_pages, fuse_page_candidates
 
@@ -742,11 +742,11 @@ def create_parse_job(
     job.mark_stage("assets", status=JobStatus.RUNNING, ratio=0.5, detail="提取图/表候选")
     repository.update_job(job)
     blocks = to_blocks(assigned, version)
-    from paperlens_core.documents import BlockType as BlockTypeIR
-
-    # 公式兜底（V3.12 / 改进方案2.md §10.4）：编号 + 上下文段落写入
+    # 公式兜底：编号 + 上下文段落写入
     # metadata，前端标注；最差情况公式以区域图片保留而非碎片化
     import re as _re
+
+    from paperlens_core.documents import BlockType as BlockTypeIR
 
     for index, block in enumerate(blocks):
         if block.block_type != BlockTypeIR.FORMULA:
@@ -765,14 +765,17 @@ def create_parse_job(
     from paperlens_core.assets import associate_captions
 
     assets = associate_captions(assets, blocks)
-    # 表格结构化（V3.12 / 改进方案2.md §10.3）：有线框表格用 PyMuPDF
+    # 表格结构化：有线框表格用 PyMuPDF
     # 矢量线重建网格 → cell matrix + CSV；失败保持 PARTIAL（前端显示原图）
     try:
         import fitz
-
         from paperlens_core.documents import (
             AssetExtractionStatus as AssetExtractionStatusIR,
+        )
+        from paperlens_core.documents import (
             AssetKind as AssetKindIR,
+        )
+        from paperlens_core.documents import (
             AssetSourceKind as AssetSourceKindIR,
         )
         from paperlens_core.table_grid import build_table_grid
@@ -822,7 +825,7 @@ def create_parse_job(
         if block.page >= (next((s.start_page for s in sections_ir if s.canonical_name == "references"), 999))
     )
     reference_records = parse_references(references_text)
-    # V4.2（改进方案3 §7.1）：引用记录导入期持久化——此前只取计数供
+    # V4.2：引用记录导入期持久化——此前只取计数供
     # callout，访问时临时重解析，结果不稳定
     repository.store_document(
         version_id,

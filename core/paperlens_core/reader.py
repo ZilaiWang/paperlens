@@ -15,6 +15,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from .evidence import EvidenceGuard, build_evidence_ledger, render_evidence_label
 from .llm import StructuredModel
 from .models import AnswerDraft, EvidenceItem, GroundedAnswer, SupportStatus
+from .prompts import (
+    ATTRIBUTION_VERIFIER_SYSTEM,
+    QUERY_PLANNER_FEW_SHOT,
+    QUERY_PLANNER_SYSTEM,
+    READER_ADVERSARIAL_EXAMPLES,
+    READER_SYSTEM,
+    evidence_package,
+)
+from .retrieval import BM25Index, retrieval_is_sufficient
 
 # 挂到应用日志树（server logging_config 只给 "paperlens" 树挂 handler）；
 # __name__（paperlens_core.reader）propagate 到 root 会丢进文件
@@ -28,15 +37,6 @@ logger = logging.getLogger("paperlens.core.reader")
 # 键自然失效。命中时仍走 attribute 核验 + organize，管线语义不变。
 _DRAFT_CACHE: OrderedDict[str, AnswerDraft] = OrderedDict()
 _DRAFT_CACHE_MAX = 256
-from .prompts import (
-    ATTRIBUTION_VERIFIER_SYSTEM,
-    QUERY_PLANNER_FEW_SHOT,
-    QUERY_PLANNER_SYSTEM,
-    READER_ADVERSARIAL_EXAMPLES,
-    READER_SYSTEM,
-    evidence_package,
-)
-from .retrieval import BM25Index, retrieval_is_sufficient
 
 
 class OrganizedAnswer(BaseModel):
@@ -132,7 +132,7 @@ class PaperReader:
     def __init__(self, model: StructuredModel):
         self.model = model
 
-    # V4.3-4（改进方案3 §8.3）：多轮指代消解——历史只用于重写检索意图，
+    # V4.3-4：多轮指代消解——历史只用于重写检索意图，
     # 不作为事实证据（所有事实仍回到 DocumentGraph）
     def _resolve_references(
         self, question: str, history: list[dict[str, str]], thread_id: str
@@ -245,7 +245,7 @@ class PaperReader:
 
         yield ReaderEvent("stage_started", {"stage": "retrieve", "message": "正在检索段落证据"})
         query = " ".join([plan.english_query or plan.original_query, *plan.keywords]).strip()
-        # V4.3-3（改进方案3 §九）：TaskDefinition 侧重词并入检索查询与章节提示
+        # V4.3-3：TaskDefinition 侧重词并入检索查询与章节提示
         if task_id:
             from .tasks import get_task
 
@@ -259,7 +259,7 @@ class PaperReader:
                     if hint not in hints:
                         hints.append(hint)
                 plan = plan.model_copy(update={"section_hints": hints})
-        # V4.3-1（改进方案3 §8.2）：上下文检索——当前段落/章节/选区限定
+        # V4.3-1：上下文检索——当前段落/章节/选区限定
         # 检索范围（含这些 block 的 chunk），无命中则回退全文
         search_chunks = chunks
         if context_scope != "whole_paper" and context_block_ids:

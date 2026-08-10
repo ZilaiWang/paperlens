@@ -1,6 +1,6 @@
 "use client";
 
-// 原版 PDF 阅读器（改进方案2.md §16.3）：pdfjs-dist 逐页渲染 canvas，
+// 原版 PDF 阅读器：pdfjs-dist 逐页渲染 canvas，
 // 证据定位以 bbox overlay 高亮，替代无法程序化高亮的 iframe。
 // pdfjs-dist 动态导入避免 SSR 期执行（与 lib/pdfCrop.ts 同一模式）。
 

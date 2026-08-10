@@ -3,7 +3,7 @@
 Figure/Table captions are matched to media regions by caption pattern and
 proximity; in-text [n] citations are extracted as CitationCallout objects bound
 to reference sequence numbers. Raster crops are produced client-side from the
-PDF.js canvas (改进方案1.md §6.2), so no server-side rasterizer is required.
+PDF.js canvas, so no server-side rasterizer is required.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ CALL_OUT_RE = re.compile(r"\[(\d+(?:\s*[-,]\s*\d+)*)\]")
 def expand_citation_numbers(group: str) -> list[int]:
     """Expand a citation group like "3" / "3,5,8" / "3-5" into plain numbers.
 
-    "[3-5]" must resolve to 3, 4, 5 (改进方案2.md §11.3), not just its two
+    "[3-5]" must resolve to 3, 4, 5 , not just its two
     endpoints; a descending or oversized range is dropped rather than guessed.
     """
     numbers: list[int] = []
@@ -86,7 +86,7 @@ def _scan_callouts(
 
     Callout reference IDs follow the app-wide convention
     ``ref-{version_id[:10]}-{sequence}`` so the frontend can bind body
-    citations to ReferenceEntry records (改进方案2.md §11.2).
+    citations to ReferenceEntry records .
     """
     callouts: list[CitationCallout] = []
     for block in blocks:
@@ -137,7 +137,7 @@ def extract_callouts_html(
     blocks: list,
     reference_count: int,
 ) -> list[CitationCallout]:
-    """HTML path (改进方案2.md §4): the ltx_biblist is excluded from blocks at
+    """HTML path: the ltx_biblist is excluded from blocks at
     parse time, so every block is a callout source. IDs derive from the block id
     plus char span because logical pages carry no physical bbox."""
     return _scan_callouts(

@@ -1,4 +1,4 @@
-"""PaperLens 2.0 FastAPI server (routes per 改进方案1.md §17).
+"""PaperLens FastAPI application.
 
 Long tasks return {job_id, status: QUEUED} immediately; progress and validated
 Agent claims stream over SSE (/api/jobs/{id}/events).
@@ -28,14 +28,26 @@ from paperlens_core.documents import (
 )
 from paperlens_core.jobs import JobType
 from paperlens_core.quality import QualityAgent
-from pydantic import BaseModel, Field
+from paperlens_core.version import __version__
 
 from .arxiv import download_pdf, normalize_arxiv_input
 from .events import bus
 from .jobs import JobExecutor, create_arxiv_html_job, create_parse_job, new_job
+from .logging_config import setup_logging
 from .repository import Repository, now_iso
+from .schemas import (
+    AnnotationRequest,
+    ArxivImportRequest,
+    ChatRequest,
+    ComparisonQuestion,
+    ComparisonRequest,
+    RenameRequest,
+    ResolveRequest,
+    TranslateRequest,
+)
+from .services.comparisons import ARTIFACT_FIELD_MAP, translate_comparison_cells
 
-app = FastAPI(title="PaperLens", version="2.0.0")
+app = FastAPI(title="PaperLens", version=__version__)
 
 # 翻译全局并发上限（审计 P1，2026-08-05）：单请求内 4 并发批次，但多个
 # 请求会叠加打 API——进程级信号量把全局翻译并发钳制在 4 批
@@ -53,9 +65,6 @@ app.add_middleware(
 DATA_DIR = os.environ.get("PAPERLENS_DATA_DIR", ".paperlens")
 UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
-
-# 日志系统（V3.6）：data/logs/paperlens.log（轮转）+ 控制台（journald）
-from .logging_config import setup_logging
 
 logger = setup_logging(DATA_DIR)
 
@@ -223,7 +232,7 @@ def _arxiv_html_with_pdf_fallback(
     arxiv_id: str, pdf_path: str, file_name: str, job: object, user_id: str = "guest"
 ) -> object:
     """Source-first with degradation: arXiv HTML when available, else the
-    uploaded PDF through the same job (改进方案2.md §4.1 route 3)."""
+    uploaded PDF through the same job ."""
     try:
         return create_arxiv_html_job(
             executor,
@@ -288,7 +297,7 @@ async def upload_paper(file: UploadFile = File(...), raw_request: Request = None
     with open(target, "wb") as handle:
         handle.write(raw)
 
-    # Source-first (改进方案2.md §4.1): if the PDF has an arXiv version with
+    # Source-first: if the PDF has an arXiv version with
     # HTML, parse the HTML instead of the fragmented PDF. Search by file name
     # first, then by the page-1 title; every step degrades to the PDF pipeline.
     matched_arxiv: str | None = None
@@ -316,7 +325,7 @@ async def upload_paper(file: UploadFile = File(...), raw_request: Request = None
         job = new_job(JobType.PARSE)
         executor.submit(
             job,
-            # HTML 覆盖并非 100%（改进方案2.md §4.1）：匹配到 arXiv 但
+            # HTML 覆盖并非 100%：匹配到 arXiv 但
             # LaTeXML HTML 不可用（老论文常见）时，同一 job 回退 PDF 管线
             lambda current: _arxiv_html_with_pdf_fallback(
                 matched_arxiv, target, safe_name, current, user_id
@@ -338,10 +347,6 @@ async def upload_paper(file: UploadFile = File(...), raw_request: Request = None
         ),
     )
     return {"job_id": job.job_id, "status": "QUEUED", "matched_arxiv": ""}
-
-
-class ArxivImportRequest(BaseModel):
-    arxiv_input: str = Field(min_length=5, max_length=200)
 
 
 @app.post("/api/papers/import/arxiv")
@@ -638,18 +643,6 @@ def download_asset_content(asset_id: str) -> Response:
 # --------------------------------------------------------------------------
 # Sessions / chat (evidence QA with SSE)
 # --------------------------------------------------------------------------
-class RenameRequest(BaseModel):
-    title: str = Field(min_length=1, max_length=100)
-
-
-class ChatRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=2000)
-    context: str = "whole_paper"  # selection | paragraph | section | figure | whole_paper
-    context_block_ids: list[str] = Field(default_factory=list)
-    # V4.3-3：TaskDefinition（paper.overview.v1 等），见 core/tasks.py
-    task_id: str = ""
-
-
 @app.post("/api/sessions")
 def create_session(paper_id: str, version_id: str = Query(default=""), user_id: str = "guest") -> dict[str, str]:
     version = _pick_version(paper_id, version_id)
@@ -723,7 +716,7 @@ def _sse(event: str, payload: dict[str, object]) -> str:
 
 @app.post("/api/sessions/{session_id}/messages/stream")
 async def chat_message_stream(session_id: str, request: ChatRequest) -> StreamingResponse:
-    """SSE variant (改进方案2.md §19.2): claims appear as they are verified,
+    """SSE variant : claims appear as they are verified,
     not after the whole run. The buffered endpoint stays for compatibility."""
 
     def event_source():
@@ -833,7 +826,7 @@ def delete_session(session_id: str) -> dict[str, str]:
 
 @app.get("/api/sessions/latest")
 def latest_session(paper_id: str, version_id: str = Query(default=""), user_id: str = "guest") -> dict[str, str]:
-    """V4.0-3（改进方案3 §3.4/§十五-1）：进入论文时恢复最近会话。
+    """V4.0-3：进入论文时恢复最近会话。
 
     按 (paper 的当前版本, 用户) 找最近一条会话；无则 404 由前端新建。
     """
@@ -851,15 +844,11 @@ def latest_session(paper_id: str, version_id: str = Query(default=""), user_id: 
 # --------------------------------------------------------------------------
 # References
 # --------------------------------------------------------------------------
-class ResolveRequest(BaseModel):
-    contact_email: str = ""
-
-
 @app.post("/api/references/{reference_id}/resolve")
 def resolve_reference(reference_id: str, request: ResolveRequest | None = None) -> dict[str, object]:
     """Online identity verification (Crossref/arXiv) for one reference.
 
-    Implements the waterfall in 改进方案2.md §11.4 (DOI/arXiv exact first,
+    Implements the waterfall in  (DOI/arXiv exact first,
     then Crossref multi-field scoring with AMBIGUOUS detection). The resolved
     record is persisted so the status survives refresh; the client refetches
     the reference list afterwards.
@@ -985,7 +974,7 @@ def resolve_all_status(
 
 @app.post("/api/references/{reference_id}/import")
 def import_reference(reference_id: str) -> dict[str, object]:
-    """One-click import of a referenced paper (改进方案1.md §12.3).
+    """One-click import of a referenced paper .
 
     Resolves arXiv id / DOI to a public PDF where possible and enqueues a
     PARSE job; never bypasses paywalls or scrapes unofficial sources.
@@ -1004,11 +993,11 @@ def import_reference(reference_id: str) -> dict[str, object]:
                         job = new_job(JobType.PARSE)
                         executor.submit(
                             job,
-                            lambda current: create_parse_job(
+                            lambda current, pdf_path=pdf_path, arxiv_id=record["arxiv_id"]: create_parse_job(
                                 executor,
                                 repository,
                                 pdf_path=pdf_path,
-                                file_name=f"arxiv-{record['arxiv_id']}.pdf",
+                                file_name=f"arxiv-{arxiv_id}.pdf",
                                 job=current,
                             ),
                         )
@@ -1030,7 +1019,7 @@ def list_callouts(paper_id: str, version_id: str = Query(default="")) -> list[di
 
 @app.get("/api/papers/{paper_id}/page-quality")
 def list_page_quality(paper_id: str, version_id: str = Query(default="")) -> list[dict[str, object]]:
-    """Per-page parse quality verdicts (改进方案2.md §8)."""
+    """Per-page parse quality verdicts ."""
     version = _pick_version(paper_id, version_id)
     return repository.load_document(version.version_id, "page_quality")
 
@@ -1093,7 +1082,7 @@ def list_references(paper_id: str, version_id: str = Query(default="")) -> list[
 # --------------------------------------------------------------------------
 @app.post("/api/papers/{paper_id}/analyses/method-graph")
 def run_method_graph(paper_id: str, version_id: str = Query(default="")) -> dict[str, object]:
-    """Method Navigator（改进方案3 §十·功能一）：证据绑定的方法有向图。"""
+    """Method Navigator：证据绑定的方法有向图。"""
     version = _pick_version(paper_id, version_id)
     persisted = repository.load_document(version.version_id, "method_graph")
     if persisted:
@@ -1195,8 +1184,6 @@ def create_comparison(request: ComparisonRequest) -> dict[str, object]:
     # 上方缓存 key 处已统一计算）
     fields = effective_fields
     model = OpenAICompatibleModel(Settings())
-    comparator = PaperComparator(model)
-
     def _cell_value(cells: list[ComparisonCell], field: str) -> str:
         return next((cell.value for cell in cells if cell.field == field), "")
 
@@ -1209,8 +1196,8 @@ def create_comparison(request: ComparisonRequest) -> dict[str, object]:
             cells_by_paper: dict[str, list[ComparisonCell]] = {}
             # 审计改进（2026-08-05）：多篇 LLM 抽取并发执行——此前逐篇
             # 串行（每篇 60-130s），2-3 篇要等数分钟才出结果
-            from concurrent.futures import as_completed
             from concurrent.futures import ThreadPoolExecutor as _TPE
+            from concurrent.futures import as_completed
 
             def extract_paper(version: object, index: int) -> dict[str, object]:
                 try:
@@ -1220,7 +1207,7 @@ def create_comparison(request: ComparisonRequest) -> dict[str, object]:
                     )
                     profile = (artifact[0].get("profile") if artifact else None) or {}
                     artifact_fields: dict[str, dict[str, object]] = {}
-                    for cfield, afield in _ARTIFACT_FIELD_MAP.items():
+                    for cfield, afield in ARTIFACT_FIELD_MAP.items():
                         pf = (profile.get(afield) or {}) if isinstance(profile, dict) else {}
                         if pf.get("status") == "FOUND" and pf.get("value"):
                             artifact_fields[cfield] = pf
@@ -1278,7 +1265,7 @@ def create_comparison(request: ComparisonRequest) -> dict[str, object]:
                         "records": records,
                     }
                 except Exception as exc:  # P4/3.4：单篇失败降级
-                    getattr(logger, "warning")(
+                    logger.warning(
                         "comparison paper %s extraction failed: %s", version.version_id, exc
                     )
                     degraded = [
@@ -1386,9 +1373,7 @@ def create_comparison(request: ComparisonRequest) -> dict[str, object]:
                 },
                 "fields": fields,  # 审计 P1：缓存 key 用（2026-08-05）
                 # 2026-08-06：单元格中文翻译（一次 LLM 批量调用，失败降级）
-                "cell_translations": _translate_comparison_cells(
-                    model, extracted
-                ),
+                "cell_translations": translate_comparison_cells(model, extracted),
                 "created_at": now_iso(),
             }
             repository.save_comparison(comparison_id, result)
@@ -1467,11 +1452,6 @@ def get_comparison(comparison_id: str) -> dict[str, object]:
     if row is None:
         raise HTTPException(404, "comparison not found")
     return row
-
-
-class ComparisonQuestion(BaseModel):
-    question: str = Field(min_length=1, max_length=800)
-    history: list[dict[str, str]] = Field(default_factory=list)
 
 
 @app.post("/api/v1/comparisons/{comparison_id}/questions")
@@ -1577,13 +1557,6 @@ def list_tasks() -> dict[str, object]:
 # --------------------------------------------------------------------------
 # Translation (P3): glossary once, batch translate per page/section, verify.
 # --------------------------------------------------------------------------
-class TranslateRequest(BaseModel):
-    page: int | None = None
-    pages: list[int] | None = None  # translate several pages in one request
-    section_id: str | None = None
-    rebuild: bool = False
-
-
 @app.post("/api/papers/{paper_id}/translations")
 def translate_paper(paper_id: str, request: TranslateRequest) -> dict[str, object]:
     version = _pick_version(paper_id, "")
@@ -1674,7 +1647,7 @@ def translate_paper(paper_id: str, request: TranslateRequest) -> dict[str, objec
     ]
 
     # PaperTranslationProfile: structured, versioned, shared by all batches
-    # (改进方案2.md §13) — built once per version, cached like the glossary.
+    #  — built once per version, cached like the glossary.
     profile_cache = repository.load_document(version.version_id, "translation_profile")
     profile: PaperTranslationProfile | None = None
     if profile_cache and isinstance(profile_cache[0], dict):
@@ -1915,14 +1888,6 @@ def run_quality(paper_id: str, version_id: str = Query(default="")) -> dict[str,
 # --------------------------------------------------------------------------
 # Annotations (Notes)
 # --------------------------------------------------------------------------
-class AnnotationRequest(BaseModel):
-    block_id: str = ""
-    char_start: int = 0
-    char_end: int = 0
-    kind: str = "HIGHLIGHT"
-    text: str = ""
-
-
 @app.post("/api/papers/{paper_id}/annotations")
 def save_annotation(paper_id: str, request: AnnotationRequest, user_id: str = "guest") -> dict[str, str]:
     version = _pick_version(paper_id, "")

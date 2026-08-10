@@ -1,7 +1,7 @@
-"""Method Navigator（改进方案3 §十·功能一，V4.4）。
+"""Build an evidence-bound directed graph of a paper's method.
 
-把方法解析成证据绑定的有向图：Input → Backbone → 模块 → Loss → Inference →
-Output。模型只输出严格结构（节点/边/证据），前端程序渲染。
+The model returns only typed nodes, edges, and evidence identifiers; the client
+is responsible for rendering the graph.
 """
 
 from __future__ import annotations

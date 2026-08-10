@@ -1,14 +1,12 @@
-"""PDF table grid extraction from vector drawings (V3.12).
+"""Extract bordered PDF table grids from vector drawings.
 
-改进方案2.md §10.3 (wired tables): PyMuPDF exposes the page's vector drawing
-paths, so bordered tables are reconstructed as a grid:
+PyMuPDF exposes page drawing paths, so bordered tables can be reconstructed:
 
     horizontal + vertical lines -> merged boundaries -> cells
     -> text spans assigned to cells by their anchor points
 
-This is deterministic geometry code (题目要求: 确定性逻辑自行编码), with no
-ML model involved. Borderless tables stay at the region level (caption +
-crop); Docling/PP-StructureV3 remain an optional future backend.
+This is deterministic geometry code with no model involved. Borderless tables
+stay at the region level as a caption and crop.
 """
 
 from __future__ import annotations
@@ -18,8 +16,7 @@ from typing import Any
 
 LINE_TOLERANCE = 3.0  # pt: lines closer than this merge into one boundary
 MIN_H_LINE_LENGTH = 30.0  # pt: horizontal table rules are long
-MIN_V_LINE_LENGTH = 5.0  # pt: column separators are often short segments
-                         # (12pt per row in many PDFs — fix 2026-08-04)
+MIN_V_LINE_LENGTH = 5.0  # pt: column separators can be one short row segment
 SPAN_ANCHOR = 0.45  # span center ratio inside the cell box
 
 _FLOAT_RE = re.compile(r"[-+]?\d*\.?\d+")
