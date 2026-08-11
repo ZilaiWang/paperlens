@@ -1,8 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type JobInfo, type PaperRow } from "@/lib/api";
+
+const STAGES = [
+  ["file_validation", "文件校验"],
+  ["metadata_and_pages", "元数据与页面"],
+  ["layout_and_text", "版面与文字解析"],
+  ["sections", "章节结构识别"],
+  ["assets", "图表与公式提取"],
+  ["references", "参考文献解析"],
+  ["index", "检索索引建立"],
+  ["initial_translation", "初始翻译"],
+] as const;
 
 export default function HomePage() {
   const [papers, setPapers] = useState<PaperRow[]>([]);
@@ -13,83 +24,23 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
-  // 倒计时状态机（V3.11，邪门方案）：
-  // - 从第一次轮询就显示（起步 60s 的合理猜测，不追求精确）
-  // - 每轮只减不增（单调递减，杜绝"越数越多"）
-  // - 服务端进度估算只允许向下修正（更准时跳低，不准时保持递减）
-  // - job 结束（SUCCEEDED）时清零隐藏
-  const etaRef = useRef<number | null>(null);
-  const etaTickRef = useRef<number>(Date.now());
-  // 滑动窗口进度历史：供服务端斜率估算
-  const progressHistoryRef = useRef<{ t: number; p: number }[]>([]);
-
-  const updateEta = useCallback((progress: number, status: string) => {
-    const now = Date.now();
-    const dt = Math.max(0, (now - etaTickRef.current) / 1000);
-    etaTickRef.current = now;
-    if (status === "SUCCEEDED" || progress >= 0.99) {
-      etaRef.current = null;
-      return;
-    }
-    // 起步猜测：解析+翻译一篇论文 ~40s（HTML 论文略长，PDF 略短）
-    if (etaRef.current === null) {
-      etaRef.current = 40;
-      return;
-    }
-    // 服务端斜率估算（若有可靠数据），只允许向下修正
-    let estimated: number | null = null;
-    const history = progressHistoryRef.current;
-    if (history.length >= 3) {
-      const first = history[0];
-      const last = history[history.length - 1];
-      const window = (last.t - first.t) / 1000;
-      const delta = last.p - first.p;
-      if (window >= 3 && delta > 0.001 && last.p > 0.05) {
-        estimated = (1 - last.p) / (delta / window);
-      }
-    }
-    const decremented = Math.max((etaRef.current ?? 0) - dt, 0);
-    etaRef.current =
-      estimated !== null && estimated < decremented
-        ? Math.max(estimated, 5) // 向下修正，保底 5s
-        : decremented; // 无估算或估算更慢 → 保持单调递减
-  }, []);
 
   const refresh = useCallback(() => {
     api.listPapers().then(setPapers).catch(() => setPapers([]));
   }, []);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  useEffect(() => refresh(), [refresh]);
 
-  // Follow a parse job; navigate to the paper when it succeeds.
-  // The job carries paper_id, so we never guess from list order; progressive
-  // translation happens inside the workbench instead of blocking the entry.
-  const watchJob = useCallback(
-    (jobId: string) => {
-      setBusy(true);
-      setError("");
-      const poll = async () => {
+  const watchJob = useCallback((jobId: string) => {
+    setBusy(true);
+    setError("");
+    const poll = async () => {
+      try {
         const info = await api.job(jobId);
-        // 只记录递增的进度点（跳过无变化轮询），保留最近 8 个
-        const history = progressHistoryRef.current;
-        const last = history[history.length - 1];
-        if (!last || info.progress > last.p) {
-          history.push({ t: Date.now(), p: info.progress });
-          if (history.length > 8) history.shift();
-        }
-        updateEta(info.progress, info.status);
         setJob(info);
         if (info.status === "SUCCEEDED") {
           refresh();
-          if (info.paper_id) {
-            window.location.href = `/paper/${info.paper_id}`;
-          } else {
-            const rows = await api.listPapers();
-            const paper = rows[0];
-            if (paper) window.location.href = `/paper/${paper.paper_id}`;
-          }
+          if (info.paper_id) window.location.href = `/paper/${info.paper_id}`;
           return;
         }
         if (info.status === "FAILED") {
@@ -97,22 +48,21 @@ export default function HomePage() {
           setBusy(false);
           return;
         }
-        setTimeout(poll, 1200);
-      };
-      void poll();
-    },
-    [refresh]
-  );
+        window.setTimeout(() => void poll(), 1200);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "无法读取解析状态");
+        setBusy(false);
+      }
+    };
+    void poll();
+  }, [refresh]);
 
   const upload = async (file: File) => {
     if (busy) return;
+    setError("");
     try {
       const result = await api.upload(file);
-      // 上传时会自动按文件名/标题搜 arXiv：
-      // 命中 HTML 版本就走语义解析，否则回退 PDF 管线
-      setMatchedArxiv(
-        result.matched_arxiv ? `已匹配 arXiv ${result.matched_arxiv}，使用语义解析` : ""
-      );
+      setMatchedArxiv(result.matched_arxiv ? `已匹配 arXiv ${result.matched_arxiv}` : "");
       watchJob(result.job_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "上传失败");
@@ -121,6 +71,7 @@ export default function HomePage() {
 
   const importArxiv = async () => {
     if (busy || !arxivInput.trim()) return;
+    setError("");
     try {
       const result = await api.importArxiv(arxivInput.trim());
       watchJob(result.job_id);
@@ -129,216 +80,154 @@ export default function HomePage() {
     }
   };
 
-  const stageOrder = [
-    "file_validation",
-    "metadata_and_pages",
-    "layout_and_text",
-    "sections",
-    "assets",
-    "references",
-    "index",
-    "initial_translation",
-  ];
-  const stageLabels: Record<string, string> = {
-    file_validation: "文件校验",
-    metadata_and_pages: "元数据与页面",
-    layout_and_text: "版面与文字解析",
-    sections: "章节结构识别",
-    assets: "图表与公式提取",
-    references: "参考文献解析",
-    index: "检索索引建立",
-    initial_translation: "正在翻译",
-  };
+  const progress = Math.round((job?.progress ?? 0) * 100);
 
   return (
-    <main className="flex-1 flex flex-col items-center px-6 pt-20 pb-16">
-      {/* header */}
-      <header className="w-full max-w-3xl flex items-center justify-between mb-14">
-        <span className="text-xl font-semibold tracking-tight">PaperLens</span>
-        <nav className="flex items-center gap-5 text-sm text-[#6b7280]">
-          <span className="text-[#202124] font-medium">单篇阅读</span>
-          <Link href="/compare" className="hover:text-[#2f4b7c]">
-            多篇比较
-          </Link>
-        </nav>
-      </header>
+    <main className="min-h-screen px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
+      <div className="mx-auto max-w-[980px]">
+        <header className="mb-10 flex items-end justify-between gap-6">
+          <div>
+            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--pl-clay)]">
+              Evidence-native paper reader
+            </p>
+            <h1 className="max-w-2xl text-[34px] font-medium leading-[1.14] tracking-[-0.035em] text-[var(--pl-ink)] sm:text-[42px]">
+              从一篇论文开始，<br className="hidden sm:block" />读懂原文，也找到每个结论的证据。
+            </h1>
+          </div>
+          <div className="hidden pb-1 text-right font-mono text-[10px] leading-5 text-[var(--pl-faint)] lg:block">
+            LOCAL-FIRST<br />WORKSPACE ISOLATED
+          </div>
+        </header>
 
-      {/* hero */}
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-semibold tracking-tight leading-tight">
-          Read a paper deeply.
-        </h1>
-      </div>
-
-      {/* import card */}
-      <div
-        className={`w-full max-w-2xl bg-white rounded-2xl border p-8 transition-colors ${
-          dragOver ? "border-[#2f4b7c] border-2" : "border-[#e6e7ea]"
-        }`}
-        onDragOver={(event) => {
-          event.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(event) => {
-          event.preventDefault();
-          setDragOver(false);
-          const file = event.dataTransfer.files?.[0];
-          if (file) void upload(file);
-        }}
-      >
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={busy}
-          className="w-full py-8 rounded-xl border border-dashed border-[#d0d3d8] text-[#6b7280] hover:border-[#2f4b7c] hover:text-[#2f4b7c] transition-colors disabled:opacity-50"
-        >
-          <div className="text-2xl mb-2">⇪</div>
-          <div>拖入 PDF，或点击选择文件</div>
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/pdf"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
+        <section
+          className={`overflow-hidden rounded-2xl border bg-white shadow-[0_12px_35px_rgba(47,42,34,.07)] transition ${
+            dragOver ? "border-[var(--pl-clay)] ring-4 ring-[rgba(185,87,56,.08)]" : "border-[var(--pl-line)]"
+          }`}
+          onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragOver(false);
+            const file = event.dataTransfer.files?.[0];
             if (file) void upload(file);
           }}
-        />
-
-        <div className="flex items-center gap-3 mt-5">
-          <div className="h-px flex-1 bg-[#e6e7ea]" />
-          <span className="text-xs text-[#9aa0a6]">或</span>
-          <div className="h-px flex-1 bg-[#e6e7ea]" />
-        </div>
-
-        <div className="flex gap-2 mt-5">
-          <input
+        >
+          <label htmlFor="paper-source" className="sr-only">arXiv 链接或编号</label>
+          <textarea
+            id="paper-source"
+            rows={4}
             value={arxivInput}
             onChange={(event) => setArxivInput(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") void importArxiv();
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void importArxiv();
             }}
-            placeholder="arXiv 链接 / arXiv ID，如 2507.02798"
-            className="flex-1 px-4 py-2.5 rounded-lg border border-[#e6e7ea] text-sm focus:outline-none focus:border-[#2f4b7c]"
+            placeholder="粘贴 arXiv 链接 / ID，或把 PDF 拖到这里…"
+            className="block w-full resize-none border-0 bg-transparent px-6 pt-6 text-[15px] leading-6 text-[var(--pl-ink)] outline-none placeholder:text-[var(--pl-faint)]"
           />
-          <button
-            onClick={() => void importArxiv()}
-            disabled={busy || !arxivInput.trim()}
-            className="px-5 py-2.5 rounded-lg bg-[#2f4b7c] text-white text-sm hover:bg-[#263d64] disabled:opacity-40 transition-colors"
-          >
-            解析论文
-          </button>
+          <div className="flex flex-wrap items-center gap-2 border-t border-[var(--pl-line)] bg-[#fbfaf7] px-3 py-3">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+              className="flex h-9 items-center gap-2 rounded-lg border border-[var(--pl-line)] bg-white px-3 text-xs font-medium text-[var(--pl-muted)] transition hover:border-[var(--pl-line-strong)] hover:text-[var(--pl-ink)] disabled:opacity-40"
+            >
+              <span className="font-mono text-base leading-none">＋</span> 添加 PDF
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void upload(file);
+              }}
+            />
+            <span className="hidden font-mono text-[10px] text-[var(--pl-faint)] sm:inline">PDF · ARXIV · 证据溯源</span>
+            <button
+              type="button"
+              onClick={() => void importArxiv()}
+              disabled={busy || !arxivInput.trim()}
+              className="ml-auto flex h-9 items-center gap-2 rounded-lg bg-[var(--pl-ink)] px-4 text-xs font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              {busy ? "处理中" : "开始解析"}<span aria-hidden>↵</span>
+            </button>
+          </div>
+        </section>
+
+        {(job || error || matchedArxiv) && (
+          <section className="mt-4 rounded-xl border border-[var(--pl-line)] bg-white/70 p-4">
+            {error ? (
+              <p className="text-sm text-[#a23f32]">{error}</p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-[var(--pl-ink)]">
+                    {matchedArxiv || "正在构建论文结构与证据索引"}
+                  </span>
+                  <span className="font-mono text-[var(--pl-clay)]">{progress}%</span>
+                </div>
+                <div className="mt-3 h-1 overflow-hidden rounded-full bg-[var(--pl-line)]">
+                  <div className="h-full bg-[var(--pl-clay)] transition-all duration-500" style={{ width: `${progress}%` }} />
+                </div>
+                {job && (
+                  <div className="mt-4 grid gap-1.5 sm:grid-cols-2">
+                    {STAGES.filter(([key]) => job.stages[key]).map(([key, label]) => {
+                      const status = job.stages[key]?.status;
+                      return (
+                        <div key={key} className="flex items-center gap-2 font-mono text-[10px] text-[var(--pl-muted)]">
+                          <span className={status === "SUCCEEDED" || status === "RUNNING" ? "text-[var(--pl-clay)]" : "text-[var(--pl-faint)]"}>
+                            {status === "SUCCEEDED" ? "✓" : status === "RUNNING" ? "●" : "○"}
+                          </span>
+                          {label}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
+        <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--pl-muted)]">最近论文</h2>
+              <Link href="/library" className="text-xs text-[var(--pl-muted)] hover:text-[var(--pl-clay)]">查看资料库 →</Link>
+            </div>
+            {papers.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[var(--pl-line-strong)] px-5 py-8 text-center text-sm text-[var(--pl-faint)]">
+                还没有论文。导入第一篇，PaperLens 会保留结构、证据与版本。
+              </div>
+            ) : (
+              <div className="divide-y divide-[var(--pl-line)] border-y border-[var(--pl-line)]">
+                {papers.slice(0, 6).map((paper, index) => (
+                  <Link key={paper.paper_id} href={`/paper/${paper.paper_id}`} className="group grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 py-3.5">
+                    <span className="font-mono text-[10px] text-[var(--pl-faint)]">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="truncate text-[13px] font-medium group-hover:text-[var(--pl-clay)]">{paper.title || paper.paper_id.slice(0, 12)}</span>
+                    <span className="font-mono text-[9px] uppercase text-[var(--pl-faint)]">{paper.source} · v{paper.versions}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <aside>
+            <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--pl-muted)]">阅读工具</h2>
+            <div className="space-y-2">
+              <Link href="/library" className="block rounded-xl border border-[var(--pl-line)] bg-white/55 p-4 transition hover:bg-white">
+                <div className="text-[13px] font-medium">浏览论文库</div>
+                <p className="mt-1 text-[11px] leading-4 text-[var(--pl-faint)]">继续阅读、筛选和管理已导入论文</p>
+              </Link>
+              <Link href="/compare" className="block rounded-xl border border-[var(--pl-line)] bg-white/55 p-4 transition hover:bg-white">
+                <div className="text-[13px] font-medium">比较多篇论文</div>
+                <p className="mt-1 text-[11px] leading-4 text-[var(--pl-faint)]">从方法、实验与证据维度对齐阅读</p>
+              </Link>
+            </div>
+          </aside>
         </div>
       </div>
-
-      {/* 上传匹配 arXiv 提示（Source-first） */}
-      {matchedArxiv && (
-        <div className="w-full max-w-2xl mt-6 bg-white rounded-2xl border border-[#e6e7ea] p-4 text-sm text-[#2f4b7c]">
-          ⟳ {matchedArxiv}…
-        </div>
-      )}
-      {job && (
-        <div className="w-full max-w-2xl mt-6 bg-white rounded-2xl border border-[#e6e7ea] p-6">
-          <div className="flex justify-between text-sm mb-3">
-            <span className="font-medium">正在解析</span>
-            <span className="flex items-center gap-3">
-              {/* 预计剩余时间（V3.11）：单调递减状态机——起步 60s，
-                  只减不增，服务端估算更准时向下修正 */}
-              {etaRef.current !== null && etaRef.current > 0 && (
-                <span className="text-xs text-[#9aa0a6] tabular-nums">
-                  预计剩余 {Math.round(etaRef.current)}s
-                </span>
-              )}
-              <span className="text-[#2f4b7c]">{Math.round(job.progress * 100)}%</span>
-            </span>
-          </div>
-          <div className="h-1.5 rounded-full bg-[#eceef1] overflow-hidden">
-            <div
-              className="h-full bg-[#2f4b7c] transition-all duration-500"
-              style={{ width: `${Math.round(job.progress * 100)}%` }}
-            />
-          </div>
-          <ul className="mt-4 space-y-1.5 text-sm text-[#6b7280]">
-            {/* 只显示 job 实际包含的 stage：匹配到 HTML 后无用的条目不展示（V3.7） */}
-            {stageOrder.filter((key) => job.stages[key]).map((key) => {
-              const stage = job.stages[key];
-              const done = stage?.status === "SUCCEEDED";
-              const active = stage?.status === "RUNNING";
-              const queued = stage?.status === "QUEUED";
-              // 每步耗时（日志系统 V3.6：stage 时间戳，快速定位慢在哪）
-              let duration = "";
-              if (stage?.started_at && stage.finished_at) {
-                const seconds =
-                  (new Date(stage.finished_at).getTime() -
-                    new Date(stage.started_at).getTime()) /
-                  1000;
-                if (seconds > 0.05) duration = `${seconds.toFixed(1)}s`;
-              }
-              return (
-                <li key={key} className="flex items-center gap-2">
-                  <span
-                    className={
-                      done || active
-                        ? "text-[#2f4b7c]"
-                        : queued
-                          ? "text-[#d0d3d8]"
-                          : ""
-                    }
-                  >
-                    {done ? "✓" : active ? "●" : "○"}
-                  </span>
-                  <span className={queued ? "text-[#9aa0a6]" : ""}>
-                    {stageLabels[key] ?? key}
-                  </span>
-                  {stage?.detail && (
-                    <span className="text-xs text-[#9aa0a6]">{stage.detail}</span>
-                  )}
-                  {queued && (
-                    <span className="text-xs text-[#d0d3d8]">待开始</span>
-                  )}
-                  {duration && (
-                    <span className="text-xs text-[#9aa0a6] ml-auto tabular-nums">
-                      {duration}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
-      {error && (
-        <div className="mt-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5">
-          {error}
-        </div>
-      )}
-
-      {/* recent papers */}
-      <section className="w-full max-w-2xl mt-14">
-        <h2 className="text-sm text-[#6b7280] mb-3">最近阅读</h2>
-        {papers.length === 0 ? (
-          <p className="text-sm text-[#9aa0a6]">还没有解析过的论文</p>
-        ) : (
-          <div className="grid gap-2">
-            {papers.map((paper) => (
-              <Link
-                key={paper.paper_id}
-                href={`/paper/${paper.paper_id}`}
-                className="group flex items-center justify-between bg-white border border-[#e6e7ea] rounded-xl px-5 py-3.5 hover:border-[#2f4b7c] transition-colors"
-              >
-                <span className="text-sm font-medium truncate group-hover:text-[#2f4b7c]">
-                  {paper.title || paper.paper_id.slice(0, 12)}
-                </span>
-                <span className="text-xs text-[#9aa0a6] shrink-0 ml-4">
-                  {paper.source} · {paper.versions} 版本
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
     </main>
   );
 }

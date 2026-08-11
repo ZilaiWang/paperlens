@@ -1,15 +1,22 @@
 @import "tailwindcss";
 
-/* PaperLens visual language:
-   quiet background, restrained indigo accent, serif paper body, sans UI. */
 :root {
-  --pl-bg: #f7f7f5;
+  --pl-bg: #f4f2ed;
+  --pl-canvas: #f7f6f2;
+  --pl-sidebar: #ece9e2;
   --pl-panel: #ffffff;
-  --pl-text: #202124;
-  --pl-secondary: #6b7280;
-  --pl-border: #e6e7ea;
-  --pl-accent: #2f4b7c;
-  --pl-translation-bg: #f0f4f8;
+  --pl-text: #272521;
+  --pl-ink: #26241f;
+  --pl-secondary: #706c64;
+  --pl-muted: #716d65;
+  --pl-faint: #9a958b;
+  --pl-border: #e3e0d9;
+  --pl-line: #dedad1;
+  --pl-line-strong: #cec8bd;
+  --pl-accent: #b95738;
+  --pl-clay: #b95738;
+  --pl-clay-dark: #98452e;
+  --pl-translation-bg: #f5f1e9;
   --pl-serif: Georgia, "Times New Roman", "Noto Serif SC", serif;
 
   /* 统一 motion token：组件不再各自写 200ms/ease */
@@ -23,9 +30,9 @@
 
 html,
 body {
-  background: var(--pl-bg);
+  background: var(--pl-canvas);
   color: var(--pl-text);
-  font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -35,12 +42,13 @@ body {
 
 .translation-block {
   background: var(--pl-translation-bg);
-  border-radius: 6px;
-  padding: 0.9rem 1rem;
-  margin-top: 0.35rem;
-  color: #3d4451;
-  line-height: 1.85;
-  font-size: 0.95rem;
+  border-left: 2px solid #d9c4b7;
+  border-radius: 0 6px 6px 0;
+  padding: 0.75rem 0.95rem;
+  margin: 0.3rem 0 1.1rem;
+  color: #5e574e;
+  line-height: 1.8;
+  font-size: 0.925rem;
 }
 
 @keyframes pl-fade {
@@ -160,5 +168,5 @@ mark.pl-evidence.flashing {
 }
 
 ::selection {
-  background: rgba(47, 75, 124, 0.18);
+  background: rgba(185, 87, 56, 0.18);
 }

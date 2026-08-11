@@ -11,10 +11,38 @@
 [参与贡献](CONTRIBUTING.md) · [路线图](docs/roadmap.md)
 
 [![CI](https://github.com/ZilaiWang/paperlens/actions/workflows/ci.yml/badge.svg)](https://github.com/ZilaiWang/paperlens/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/badge/release-v1.2.0-b95738.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)](core/pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 </div>
+
+## 产品导览
+
+### 先把一篇论文读懂
+
+![PaperLens 双语单篇阅读器](docs/images/reader.jpg)
+
+单篇阅读器是 PaperLens 的产品中心。正文以可读的论文版式重建，同时保留一键
+返回原版 PDF；目录、图表、引用、论文洞察、翻译和证据问答都围绕当前阅读上下文
+展开。右侧“问论文”默认关闭，首先把屏幕空间完整交给论文。
+
+### 从论文库进入具体工作
+
+| 论文库 | 阅读与翻译设置 |
+| --- | --- |
+| ![PaperLens 论文库](docs/images/library.jpg) | ![PaperLens 翻译设置](docs/images/translation-settings.jpg) |
+
+论文库负责打开和选择论文，不要求用户先理解另一套“研究项目”模型。选择两到三篇
+论文即可进入对比模式。术语和固定译法位于阅读器设置中，作为双语阅读的内部能力，
+不再占据一级导航。
+
+### 基于证据进行多篇比较
+
+![PaperLens 多篇论文对比](docs/images/compare.jpg)
+
+多篇比较从正在阅读的论文自然发起。系统先独立抽取每篇论文，再对齐方法、实验、
+指标、局限和自定义维度；不可比条件会被明确保留，有证据的结论可以继续跳回原文。
 
 ## 为什么做 PaperLens？
 
@@ -37,6 +65,8 @@ PaperLens 先用确定性解析构建文档表示，再让检索和大模型工�
 - **单篇分析：**生成方法图谱、结构化实验记录、论文档案和质量评估。
 - **多篇比较：**比较 2–3 个论文版本，区分“没有检索到”和“确认未报告”，
   不对数据集或指标条件不同的结果做不可靠排名。
+- **上下文化研究能力：**问题、假设、对比集和可复现 Agent 运行用于扩展当前
+  论文工作流，而不是另建一个与阅读并列的产品入口。
 - **参考文献链路：**抽取参考文献、检查格式、通过学术元数据服务核验身份，
   并可导入公开的 arXiv 来源。
 
@@ -123,9 +153,11 @@ cd web && bun run build
 
 ## 项目状态与边界
 
-PaperLens 1.0 适合作为自托管、单进程应用使用，目前不是多租户云服务。SQLite、
-进程内任务、开发期宽松 CORS 和缺少内置认证都是当前明确边界。未增加认证层和
-严格反向代理配置前，不要把 API 直接暴露到公网。
+PaperLens 1.2 适合作为自托管、单进程应用使用。匿名工作区使用不透明的
+HttpOnly 会话 Cookie 与存储层 workspace 隔离，开发环境 CORS 也只允许显式配置
+的前端来源。这属于身份隔离，并不等同于用户账号认证；项目目前仍不是多租户云
+服务。SQLite 与进程内任务仍是明确边界。未增加账号认证、TLS 和严格反向代理
+配置前，不要把 API 直接暴露到公网。
 
 复杂无边框表格、扫描 PDF、公式 OCR 和特殊多栏版面仍可能导致部分解析失败。
 PaperLens 会暴露解析缺口和证据缺口，而不会把“未提取到”误判为“论文未报告”。

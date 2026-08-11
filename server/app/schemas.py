@@ -7,7 +7,9 @@ being accidentally omitted during refactors.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from paperlens_core.autoresearch.experiment import RunKind
+from paperlens_core.termbase import TermEntryUpsert
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ArxivImportRequest(BaseModel):
@@ -52,3 +54,81 @@ class AnnotationRequest(BaseModel):
     char_end: int = 0
     kind: str = "HIGHLIGHT"
     text: str = ""
+
+
+# vNext transport contracts -------------------------------------------------
+class WorkspaceCreateRequest(BaseModel):
+    name: str = ""
+
+
+class ProjectCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(min_length=1, max_length=200)
+    description: str = ""
+    goal: str = ""
+
+
+class ProjectUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: str | None = None
+    description: str | None = None
+    goal: str | None = None
+
+
+class ProjectPaperRequest(BaseModel):
+    paper_id: str = Field(min_length=1, max_length=200)
+
+
+class QuestionCreateRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=800)
+    detail: str = ""
+
+
+class HypothesisCreateRequest(BaseModel):
+    question_id: str = ""
+    statement: str = Field(min_length=1, max_length=1000)
+    rationale: str = ""
+
+
+class RunCreateRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    paper_version_ids: list[str] = Field(default_factory=list)
+
+
+class CustomDimensionRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    instruction: str = ""
+
+
+class ComparisonSetCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str = ""
+    question: str = ""
+    paper_version_ids: list[str] = Field(default_factory=list)
+    dimensions: list[str] = Field(default_factory=list)
+    custom_dimensions: list[CustomDimensionRequest] = Field(default_factory=list)
+
+
+class TermUpsertRequest(TermEntryUpsert):
+    """Workspace-owned term entry request."""
+
+
+class TranslateV2Request(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    paragraphs: list[str] = Field(min_length=1, max_length=200)
+    section_title: str = ""
+    paper_title: str = ""
+
+
+class TermScanRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=20000)
+
+
+class ExperimentPlanRequest(BaseModel):
+    kind: RunKind = RunKind.SCRIPT
+    command: str = ""
+    description: str = ""
+    parameters: dict[str, object] = Field(default_factory=dict)

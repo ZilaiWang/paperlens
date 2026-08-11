@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 import uuid
 from pathlib import Path
 
@@ -110,10 +111,26 @@ class Repository:
     def __init__(self, database_path: str | Path):
         self.path = Path(database_path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self.path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.executescript(SCHEMA)
+        self._connections = threading.local()
+        connection = self._conn
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.executescript(SCHEMA)
+
+    @property
+    def _conn(self) -> sqlite3.Connection:
+        """Return one SQLite connection per worker thread.
+
+        FastAPI executes synchronous routes concurrently in a thread pool.
+        Sharing one connection across those threads can produce intermittent
+        ``InterfaceError`` failures even with ``check_same_thread=False``.
+        """
+        connection = getattr(self._connections, "connection", None)
+        if connection is None:
+            connection = sqlite3.connect(self.path, timeout=30)
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA busy_timeout=30000")
+            self._connections.connection = connection
+        return connection
         # migration: older DBs lack the user_id column (V3.6 quota)
         columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(papers)")}
         if "user_id" not in columns:

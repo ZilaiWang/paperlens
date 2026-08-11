@@ -31,6 +31,36 @@ PARSE_STAGE_ORDER = [
 ]
 
 
+def _store_canonical_document(
+    repository: Repository,
+    version_id: str,
+    blocks: list[object],
+    *,
+    parse_run_id: str,
+    backend: str,
+) -> None:
+    """Persist the vNext IR beside the stable V1 representation.
+
+    The production import path still owns section, asset, citation, and chunk
+    enrichment. This bridge makes CanonicalNode identity/provenance real
+    production data without replacing the proven enrichment pipeline.
+    """
+    from paperlens_core.ir.canonical import canonical_document_from_blocks
+
+    document = canonical_document_from_blocks(
+        document_id=version_id,
+        source_version_id=version_id,
+        blocks=blocks,
+        parse_run_id=parse_run_id,
+        backend=backend,
+    )
+    repository.store_document(
+        version_id,
+        "canonical_document_v2",
+        [document.model_dump(mode="json")],
+    )
+
+
 class JobExecutor:
     def __init__(self, repository: Repository, data_dir: str):
         self.repository = repository
@@ -515,6 +545,13 @@ def create_arxiv_html_job(
     repository.store_document(version_id, "blocks", [b.model_dump(mode="json") for b in blocks_ir])
     repository.store_document(version_id, "sections", [s.model_dump(mode="json") for s in sections_ir])
     repository.store_document(version_id, "chunks", [c.model_dump(mode="json") for c in chunks_ir])
+    _store_canonical_document(
+        repository,
+        version_id,
+        list(blocks_ir),
+        parse_run_id=f"pr-html-{version_id[:12]}",
+        backend="arxiv-html",
+    )
     job.mark_stage("index", status=JobStatus.SUCCEEDED, ratio=1.0, detail=f"{len(chunks)} 个分片")
     job.mark_stage("initial_translation", status=JobStatus.RUNNING, ratio=0.0, detail="正在翻译…")
     repository.update_job(job)
@@ -692,6 +729,7 @@ def create_parse_job(
         quality.resolved_by = fused_pages.get(quality.page, "")
     # fused_pages 键是 int 页码，ParseRun 用 str 键（JSON 序列化稳定）
     fused_pages_str = {str(page): engine for page, engine in fused_pages.items()}
+    parse_run_id = f"pr-{version_id[:12]}-{uuid.uuid4().hex[:8]}"
     repository.store_document(
         version_id,
         "page_quality",
@@ -708,7 +746,7 @@ def create_parse_job(
         "parse_run",
         [
             ParseRun(
-                parse_run_id=f"pr-{version_id[:12]}-{uuid.uuid4().hex[:8]}",
+                parse_run_id=parse_run_id,
                 paper_version_id=version_id,
                 parser_pipeline=f"hybrid:{parse_engine}",
                 engine=parse_engine,
@@ -809,6 +847,13 @@ def create_parse_job(
     repository.store_document(version_id, "sections", [s.model_dump(mode="json") for s in sections_ir])
     repository.store_document(version_id, "chunks", [c.model_dump(mode="json") for c in chunks_ir])
     repository.store_document(version_id, "assets", [a.model_dump(mode="json") for a in assets])
+    _store_canonical_document(
+        repository,
+        version_id,
+        list(blocks),
+        parse_run_id=parse_run_id,
+        backend=parse_engine,
+    )
 
     # references: 引用条目解析 + callout 绑定
     job.mark_stage("references", status=JobStatus.RUNNING, ratio=0.4, detail="解析引用…")

@@ -88,16 +88,20 @@ OpenAI-compatible adapter; tests use deterministic responses. Workflows pass a
 system prompt, bounded evidence package, Pydantic schema, stage name, and thread
 identifier. Validation failures can take one schema-repair path.
 
-PaperLens deliberately does not expose an unrestricted tool-calling agent in
-the product runtime. Most workflows are typed pipelines whose steps and network
-boundaries are visible in code.
+PaperLens does not expose an unrestricted tool-calling agent. Research runs are
+persisted, typed DAGs with an allow-listed tool registry. Retrieval, profiling,
+comparison, synthesis, and report production have explicit inputs, task results,
+and failure states; the runtime cannot invoke arbitrary shell or network tools.
 
 ## Server layers
 
 ```text
-server/app/main.py                  FastAPI composition and routes
+server/app/main.py                  FastAPI composition and legacy v1 routes
+server/app/routers/                 Versioned feature transport
 server/app/schemas.py               Public request contracts
 server/app/services/                Application orchestration adapters
+server/app/repositories/            Workspace-scoped vNext persistence
+server/app/auth/                    Anonymous session resolution and cookies
 server/app/jobs.py                  Import and translation job workflows
 server/app/repository.py            SQLite persistence adapter
 server/app/events.py                In-process SSE event bus
@@ -105,16 +109,18 @@ server/app/arxiv.py                 arXiv metadata and PDF transport
 server/app/logging_config.py        Logging setup
 ```
 
-The current `main.py` remains larger than desired. New domain logic must not be
-added there. The migration path is feature routers with injected application
-services, performed incrementally while preserving URLs and OpenAPI contracts.
+The v2 surface is mounted from feature routers and delegates reusable work to
+services and repositories. `main.py` still contains the legacy v1 surface; new
+domain logic must not be added there. Continue extracting coherent v1 features
+incrementally while preserving URLs and OpenAPI contracts.
 
 ## Frontend layers
 
-The Next.js app has three user surfaces: import/home, paper workbench, and paper
-comparison. `web/lib/api.ts` owns transport types and requests. Components
-render persisted document and evidence data; they do not decide whether a claim
-is supported.
+The Next.js app has a shared research-workspace shell plus import, project,
+termbase, paper workbench, and comparison surfaces. `web/lib/api.ts` owns legacy
+paper transport and `web/lib/apiV2.ts` owns workspace-scoped contracts.
+Components render persisted document and evidence data; they do not decide
+whether a claim is supported.
 
 `Workbench.tsx`, `AgentPanel.tsx`, and the comparison page are current
 modularization hotspots. Split them by feature state and view responsibility,
@@ -131,6 +137,11 @@ SQLite is configured for WAL mode. The job executor and event bus live in
 process memory, so multiple API workers would not share live progress or SSE
 events. A future distributed deployment must move jobs and events to durable
 infrastructure before adding workers.
+
+Anonymous workspace identity is represented by an opaque, hashed session token
+sent only in an HttpOnly cookie. The server never trusts a client-selected
+workspace ID. This prevents accidental cross-workspace access but is not a
+replacement for account authentication in a public deployment.
 
 ## Dependency rules
 
