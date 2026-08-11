@@ -25,7 +25,7 @@ from paperlens_core.comparison_v2.synthesis import Synthesizer
 from paperlens_core.ir.identity import new_id
 from paperlens_core.papers.profile_builder import PaperProfileBuilder
 from paperlens_core.research.models import Hypothesis, Project, ResearchQuestion
-from paperlens_core.termbase import TermResolver, TermScope
+from paperlens_core.termbase import TermPackCatalog, TermResolver, TermScope
 
 from ..auth import resolve_workspace_id, set_session_cookie
 from ..repositories import VNextRepository
@@ -498,6 +498,41 @@ def delete_term(
 ) -> dict[str, object]:
     repo.delete_term_entry(_ws(request), scope, source)
     return {"deleted": f"{scope}:{source}"}
+
+
+@router.get("/term-packs")
+def list_term_packs(
+    request: Request,
+    repo: VNextRepository = Depends(_vnext_repo),
+) -> list[dict[str, object]]:
+    installed = set(repo.list_installed_term_packs(_ws(request)))
+    return [
+        {**manifest.model_dump(mode="json"), "installed": manifest.pack_id in installed}
+        for manifest in TermPackCatalog().list()
+    ]
+
+
+@router.post("/term-packs/{pack_id}/install")
+def install_term_pack(
+    pack_id: str,
+    request: Request,
+    repo: VNextRepository = Depends(_vnext_repo),
+) -> dict[str, object]:
+    pack = TermPackCatalog().get(pack_id)
+    if pack is None:
+        raise HTTPException(404, "term pack not found")
+    repo.install_term_pack(_ws(request), pack_id, now_iso())
+    return {**pack.manifest.model_dump(mode="json"), "installed": True}
+
+
+@router.delete("/term-packs/{pack_id}")
+def uninstall_term_pack(
+    pack_id: str,
+    request: Request,
+    repo: VNextRepository = Depends(_vnext_repo),
+) -> dict[str, object]:
+    repo.uninstall_term_pack(_ws(request), pack_id)
+    return {"pack_id": pack_id, "installed": False}
 
 
 # ---------------------------------------------------------------------------

@@ -23,7 +23,8 @@ may parse documents correctly but fail structured analysis schemas.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `PAPERLENS_PDF_PARSER` | `hybrid` | `hybrid`, `pymupdf`, or `pdfplumber`. Hybrid prefers PyMuPDF and falls back by quality. |
+| `PAPERLENS_PDF_PARSER` | `hybrid` | Legacy compatibility setting. Production uploads use Parser v2 capability planning. |
+| `PAPERLENS_GROBID_URL` | empty | Optional GROBID service base URL, for example `http://127.0.0.1:8070`. |
 | `PAPERLENS_MAX_PDF_MB` | `80` | Maximum accepted upload size in MiB. |
 | `PAPERLENS_TOP_K` | `8` | Default number of BM25 retrieval hits. |
 | `PAPERLENS_MAX_SYNC_FIGURES` | `10` | Number of remote figures downloaded during import before switching to on-demand fetch. |
@@ -63,6 +64,7 @@ PAPERLENS_DATA_DIR=.paperlens
 PAPERLENS_MAX_PDF_MB=80
 PAPERLENS_TOP_K=8
 PAPERLENS_PDF_PARSER=hybrid
+PAPERLENS_GROBID_URL=
 PAPERLENS_USER_QUOTA=300
 PAPERLENS_MAX_SYNC_FIGURES=10
 PAPERLENS_CORS_ORIGINS=http://127.0.0.1:3000,http://localhost:3000
@@ -71,3 +73,23 @@ PAPERLENS_SECURE_COOKIES=false
 
 Never place real credentials in `.env.example`, issue reports, screenshots, or
 committed deployment units.
+
+## Optional parsing providers
+
+The default install stays lightweight. Install Docling when structure recovery
+quality justifies its model/runtime cost:
+
+```bash
+.venv/bin/pip install -e "core[docling]"
+```
+
+Install PaddleOCR-VL only on a machine prepared for its inference runtime. It
+is reserved for pages flagged by the primary quality pass:
+
+```bash
+.venv/bin/pip install -e "core[paddleocr-vl]"
+```
+
+GROBID runs as a separate service and needs no additional PaperLens Python
+dependency. Provider absence or failure is recorded and falls back to local
+parsers; it does not prevent the application from starting.

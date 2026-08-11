@@ -5,6 +5,42 @@ Notable user-facing changes are documented here. PaperLens follows
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-11
+
+### Added
+
+- Added production Parser v2 with canonical-first persistence, object-specific
+  quality metrics, two-pass selective repair, and an auditable repair ledger.
+- Added optional Docling structure parsing, GROBID academic-semantic overlay,
+  and page-scoped PaddleOCR-VL visual repair adapters with lightweight fallback.
+- Added adaptive Paper Agent routing, capability-selected 3–8 task plans,
+  structured fact/inference/assessment/unknown findings, and a reproduction
+  requirement tree.
+- Added installable machine-learning, computer-vision, NLP, and remote-sensing
+  terminology packs plus workspace-scoped installation APIs.
+- Added ParserBench repair/object metrics and an offline AgentBench runner.
+- Added reader text-selection actions for ask, explain, and translate.
+
+### Changed
+
+- Simplified the home page and reader around one flow: import, read, ask.
+- Moved terminology packs and personal translation overrides behind reader
+  translation settings and removed them from primary navigation.
+- Removed the reader's standalone Insights tab; method, experiment,
+  reproduction, and critical analysis now operate as Paper Agent capabilities.
+- Replaced the global parse warning banner with page-local quality notices and
+  collapsed detailed import stages by default.
+- Changed the visual accent from clay/orange to a restrained deep blue.
+- Kept Research Project and AutoResearch surfaces out of the v1.3 product
+  navigation; existing backend contracts remain for compatibility.
+
+### Fixed
+
+- Fixed the Python package build by moving package metadata to a core-local
+  README accepted by Hatchling.
+- Prevented OCR/VLM backends from being scheduled as full-document body parsers.
+- Prevented adaptive deep plans from generating duplicate task identifiers.
+
 ## [1.2.0] - 2026-08-11
 
 ### Added

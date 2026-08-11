@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from paperlens_core.termbase.memory import MemoryEntry, TranslationMemory
 from paperlens_core.termbase.models import TermEntry, TermScope
+from paperlens_core.termbase.packs import TermPackCatalog
 from paperlens_core.termbase.termbase import (
+    DomainTermbase,
     ProjectTermbase,
     SystemTermbase,
     TermResolver,
@@ -32,6 +34,7 @@ class TranslationV2Service:
     def load_termbase(self, workspace_id: str) -> dict[str, object]:
         """Assemble a layered TermResolver from the stored entries."""
         system = SystemTermbase()
+        domain = DomainTermbase(domain="installed-packs")
         project = ProjectTermbase(project_id=workspace_id)
         user = UserTermbase(user_id=workspace_id)
 
@@ -56,8 +59,12 @@ class TranslationV2Service:
             elif scope == TermScope.SYSTEM:
                 system.upsert(entry)
 
-        resolver = TermResolver(system=system, project=project, user=user)
-        return {"resolver": resolver, "project": project, "system": system}
+        catalog = TermPackCatalog()
+        for entry in catalog.entries(self.vnext.list_installed_term_packs(workspace_id)):
+            domain.upsert(entry)
+
+        resolver = TermResolver(system=system, domain=domain, project=project, user=user)
+        return {"resolver": resolver, "project": project, "domain": domain, "system": system}
 
     # ------------------------------------------------------------------
     def load_memory(self, workspace_id: str) -> TranslationMemory:
@@ -75,7 +82,11 @@ class TranslationV2Service:
         # a snapshot of project + system terms (the ones the user curates)
         def term_snapshot_curated() -> list[dict[str, str]]:
             snapshot: list[dict[str, str]] = []
-            for entry in list(termbase["project"].all()) + list(termbase["system"].all()):
+            for entry in (
+                list(termbase["project"].all())
+                + list(termbase["domain"].all())
+                + list(termbase["system"].all())
+            ):
                 policy = entry.effective_policy
                 snapshot.append(
                     {
@@ -109,7 +120,11 @@ class TranslationV2Service:
         termbase = self.load_termbase(workspace_id)
         hits: list[dict[str, object]] = []
         lower = text.lower()
-        for entry in list(termbase["project"].all()) + list(termbase["system"].all()):
+        for entry in (
+            list(termbase["project"].all())
+            + list(termbase["domain"].all())
+            + list(termbase["system"].all())
+        ):
             source = entry.source.lower()
             if source and source in lower:
                 hits.append(

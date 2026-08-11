@@ -31,8 +31,14 @@ multi-tenant distributed architecture.
 
 ```mermaid
 flowchart LR
-    Source["PDF or arXiv"] --> Parse["Parse router"]
-    Parse --> Blocks["Blocks and page geometry"]
+    Source["PDF or arXiv"] --> Probe["Document probe"]
+    Probe --> Plan["Capability plan"]
+    Plan --> Candidates["Backend candidates"]
+    Candidates --> Fusion["Canonicalize and region fusion"]
+    Fusion --> Quality["Object and page quality"]
+    Quality -->|"weak regions only"| Repair["Selective repair"]
+    Repair --> Fusion
+    Quality --> Blocks["CanonicalDocument + compatibility blocks"]
     Blocks --> Sections["Paragraphs and sections"]
     Sections --> Assets["Figures, tables, formulas, references"]
     Sections --> Chunks["Retrieval chunks"]
@@ -44,16 +50,22 @@ flowchart LR
 
 ### Import and parsing
 
-`ParseRouter` chooses the configured PDF backend. When the optional PyMuPDF
-dependency is installed, hybrid mode prefers its geometry adapter and can use
-pdfplumber when extraction fails or page quality is inadequate. Without it,
-hybrid mode uses pdfplumber. For supported arXiv papers, LaTeXML HTML provides a
-source-first path with structured paragraphs, equations, bibliography, and
-media; older or unavailable HTML falls back to PDF.
+Uploaded PDFs enter `ParsePipeline` v2 through `ProductionParseService`.
+`DocumentProbe` measures text coverage, scan likelihood, columns, tables, and
+formulas before `ParsePlanner` selects available capabilities. Docling is the
+optional preferred structure source; PyMuPDF and pdfplumber are deterministic
+local sources; GROBID contributes academic semantics; PaddleOCR-VL is excluded
+from full-document parsing and invoked only for pages selected for repair.
 
-Parsing produces stable blocks containing page, bounding box, type, text, font
-metadata, and provenance. Paragraph reconstruction and section detection add
-reading order and hierarchy without discarding the original geometry.
+The pipeline runs primary fusion, object/page quality, targeted reparse, region
+fusion, and final quality. A second repair pass is allowed only within the page
+budget. Provider failures and repair decisions are persisted in `ParseRun`.
+For supported arXiv papers, LaTeXML HTML remains the source-first path.
+
+Parsing first produces stable `CanonicalNode` revisions with provenance.
+`blocks_from_canonical_document` is an explicit compatibility projection for
+the reader, section detector, and chunker; legacy blocks are no longer the PDF
+pipeline's source of truth.
 
 ### DocumentIR and identity
 
@@ -88,10 +100,12 @@ OpenAI-compatible adapter; tests use deterministic responses. Workflows pass a
 system prompt, bounded evidence package, Pydantic schema, stage name, and thread
 identifier. Validation failures can take one schema-repair path.
 
-PaperLens does not expose an unrestricted tool-calling agent. Research runs are
-persisted, typed DAGs with an allow-listed tool registry. Retrieval, profiling,
-comparison, synthesis, and report production have explicit inputs, task results,
-and failure states; the runtime cannot invoke arbitrary shell or network tools.
+PaperLens does not expose an unrestricted tool-calling agent. `DepthRouter`
+keeps localized facts on the quick reader path and creates bounded 3–8 task
+plans for analytic/deep questions. The allow-listed registry covers evidence,
+document, method, experiment, reproduction, critical review, and literature
+capabilities. Findings separate fact, inference, assessment, and unknown states
+and carry evidence IDs, confidence, and caveats.
 
 ## Server layers
 
@@ -116,9 +130,10 @@ incrementally while preserving URLs and OpenAPI contracts.
 
 ## Frontend layers
 
-The Next.js app has a shared research-workspace shell plus import, project,
-termbase, paper workbench, and comparison surfaces. `web/lib/api.ts` owns legacy
-paper transport and `web/lib/apiV2.ts` owns workspace-scoped contracts.
+The Next.js product hierarchy is import → paper reader → Paper Agent, with the
+library and comparison as auxiliary surfaces. Terminology is translation
+infrastructure, not primary navigation. `web/lib/api.ts` owns legacy paper
+transport and `web/lib/apiV2.ts` owns workspace-scoped contracts.
 Components render persisted document and evidence data; they do not decide
 whether a claim is supported.
 
@@ -157,8 +172,8 @@ replacement for account authentication in a public deployment.
 
 ## Extension points
 
-- Add a PDF backend behind `ParseRouter` and the same block/page quality
-  contract.
+- Add a PDF backend through `ParserBackend`; candidates must pass canonical
+  fusion and object-quality contracts.
 - Add a model provider through the OpenAI-compatible adapter or a new
   `StructuredModel` implementation.
 - Add an analysis workflow as a typed core function returning evidence-bound

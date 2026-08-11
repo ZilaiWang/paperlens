@@ -19,6 +19,7 @@ from .canonical import (
     CanonicalDocument,
     CanonicalNode,
     NodeType,
+    blocks_from_canonical_document,
     canonical_document_from_blocks,
     canonical_node_from_block,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "CanonicalDocument",
     "CanonicalNode",
     "NodeType",
+    "blocks_from_canonical_document",
     "canonical_document_from_blocks",
     "canonical_node_from_block",
     "UserAccount",

@@ -44,15 +44,18 @@ class ParsePlanner:
         self.backends = backends
         self.prefer = prefer
 
-    def _backend_by_capability(self, capability: Capability) -> list[str]:
+    def _backend_by_capability(
+        self, capability: Capability, available: set[str] | None = None
+    ) -> list[str]:
         order: list[str] = []
         for backend in self.backends:
             try:
                 caps = backend.capabilities()
             except Exception:  # noqa: BLE001 - planner is defensive
                 continue
-            if capability in caps:
-                order.append(getattr(backend, "name", type(backend).__name__))
+            name = getattr(backend, "name", type(backend).__name__)
+            if capability in caps and (available is None or name in available):
+                order.append(name)
         if self.prefer and order and order[0] != self.prefer:
             # move preferred to front (stable)
             order = [self.prefer] + [b for b in order if b != self.prefer]
@@ -64,23 +67,37 @@ class ParsePlanner:
         layout = getattr(report, "layout", "UNKNOWN")
         table_complexity = getattr(report, "table_complexity", "LOW")
         ocr_required = bool(getattr(report, "ocr_required", False))
+        available_names = set(getattr(report, "available_backends", []) or []) or None
 
-        # body text: prefer a text+layout backend
-        body_backends = self._backend_by_capability(Capability.LAYOUT)
-        body_backends = body_backends or self._backend_by_capability(Capability.TEXT)
+        # body text: prefer a text+layout backend. OCR/VLM providers are held
+        # back for selective repair and must never become an automatic full
+        # document pass merely because they also declare LAYOUT.
+        ocr_backends = self._backend_by_capability(Capability.OCR, available_names)
+        body_backends = self._backend_by_capability(Capability.LAYOUT, available_names)
+        body_backends = body_backends or self._backend_by_capability(Capability.TEXT, available_names)
+        body_backends = [name for name in body_backends if name not in ocr_backends]
         body_fallbacks = [b for b in body_backends[1:]] if body_backends else []
 
-        # tables: dedicated table backend, fallback to body backend
-        table_backends = self._backend_by_capability(Capability.TABLE)
+        # OCR/VLM stays out of every initial full-document capability pass.
+        # It is intentionally reserved for RepairPlanner page ranges.
+        table_backends = [
+            name
+            for name in self._backend_by_capability(Capability.TABLE, available_names)
+            if name not in ocr_backends
+        ]
         table_fallbacks = [b for b in table_backends[1:]] or body_backends[:1]
 
-        # formulas
-        formula_backends = self._backend_by_capability(Capability.FORMULA)
+        formula_backends = [
+            name
+            for name in self._backend_by_capability(Capability.FORMULA, available_names)
+            if name not in ocr_backends
+        ]
 
         # references
-        bib_backends = self._backend_by_capability(Capability.BIBLIOGRAPHY)
+        bib_backends = self._backend_by_capability(Capability.BIBLIOGRAPHY, available_names)
 
         steps: list[PlanStep] = []
+        scheduled: set[str] = set()
         for index, backend in enumerate(body_backends):
             steps.append(
                 PlanStep(
@@ -91,38 +108,55 @@ class ParsePlanner:
                     weight=1.0 if index == 0 else 0.8,
                 )
             )
-        if table_backends:
+            scheduled.add(backend)
+        table_provider = next((name for name in table_backends if name not in scheduled), "")
+        if table_provider:
             steps.append(
                 PlanStep(
                     region=ParseRegion.TABLE,
-                    backend=table_backends[0],
+                    backend=table_provider,
                     fallbacks=table_fallbacks,
                     required=table_complexity != "LOW",
                     weight=0.4,
                 )
             )
-        if formula_backends:
+            scheduled.add(table_provider)
+        formula_provider = next((name for name in formula_backends if name not in scheduled), "")
+        if formula_provider:
             steps.append(
                 PlanStep(
                     region=ParseRegion.FORMULA,
-                    backend=formula_backends[0],
+                    backend=formula_provider,
                     fallbacks=formula_backends[1:],
                     required=False,
                     weight=0.2,
                 )
             )
+            scheduled.add(formula_provider)
         if bib_backends:
+            bibliography_provider = next(
+                (name for name in bib_backends if name not in scheduled), ""
+            )
+        else:
+            bibliography_provider = ""
+        if bibliography_provider:
             steps.append(
                 PlanStep(
                     region=ParseRegion.BIBLIOGRAPHY,
-                    backend=bib_backends[0],
+                    backend=bibliography_provider,
                     fallbacks=bib_backends[1:],
                     required=False,
                     weight=0.3,
                 )
             )
+        # OCR/VLM is a repair capability. It is deliberately not scheduled as
+        # a full-document pass; RepairPlanner selects only low-quality pages.
+        if ocr_required and ocr_backends:
+            notes = list(getattr(report, "notes", []))
+            notes.append(f"OCR repair available: {ocr_backends[0]}")
+        else:
+            notes = list(getattr(report, "notes", []))
 
-        notes = list(getattr(report, "notes", []))
         if ocr_required:
             notes.append("OCR required — 无 OCR 后端时正文质量受限")
 

@@ -247,3 +247,29 @@ export const deleteTerm = (scope: string, source: string) =>
     `/api/v2/termbase/${encodeURIComponent(scope)}/${encodeURIComponent(source)}`,
     { method: "DELETE" },
   );
+
+export interface TermPack {
+  pack_id: string;
+  name: string;
+  domain: string;
+  version: string;
+  description: string;
+  language_pair: string;
+  license: string;
+  recommended: boolean;
+  term_count: number;
+  installed: boolean;
+}
+
+export const listTermPacks = () => request<TermPack[]>("/api/v2/term-packs");
+
+export const installTermPack = (packId: string) =>
+  request<TermPack>(`/api/v2/term-packs/${encodeURIComponent(packId)}/install`, {
+    method: "POST",
+  });
+
+export const uninstallTermPack = (packId: string) =>
+  request<{ pack_id: string; installed: boolean }>(
+    `/api/v2/term-packs/${encodeURIComponent(packId)}`,
+    { method: "DELETE" },
+  );

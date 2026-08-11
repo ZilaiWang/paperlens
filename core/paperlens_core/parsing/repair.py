@@ -25,6 +25,7 @@ class RepairPlan(BaseModel):
 
     targets: list[RepairTarget] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+    passes: int = 0
 
 
 class RepairPlanner:
@@ -43,6 +44,9 @@ class RepairPlanner:
         report = quality_report
         page_quality = getattr(report, "page_quality", {})
         alternatives = [b for b in self.backend_names if b != primary_backend]
+        # Visual parsing is expensive and is reserved for pages that failed
+        # the primary structure/text parse.
+        alternatives.sort(key=lambda name: (name != "paddleocr-vl", name))
         if not alternatives:
             alternatives = self.backend_names[:1]
 

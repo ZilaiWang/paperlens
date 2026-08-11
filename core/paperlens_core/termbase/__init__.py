@@ -13,9 +13,12 @@ from .memory import MemoryHit, TranslationMemory, memory_hit_kind
 from .models import (
     TermEntry,
     TermEntryUpsert,
+    TermPack,
+    TermPackManifest,
     TermPolicy,
     TermScope,
 )
+from .packs import TermPackCatalog
 from .termbase import (
     DomainTermbase,
     LockMode,
@@ -34,6 +37,9 @@ __all__ = [
     "TermPolicy",
     "TermScope",
     "TermEntryUpsert",
+    "TermPack",
+    "TermPackManifest",
+    "TermPackCatalog",
     "DomainTermbase",
     "LockMode",
     "ProjectTermbase",

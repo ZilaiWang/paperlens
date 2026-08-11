@@ -30,6 +30,9 @@ class PipelineResult:
     repair_plan: RepairPlan
     parse_run_id: str
     fusion: FusionOutcome = field(default_factory=FusionOutcome)
+    initial_quality: ParseQualityReport | None = None
+    repair_passes: int = 0
+    backend_errors: dict[str, str] = field(default_factory=dict)
 
 
 class ParsePipeline:
@@ -50,6 +53,7 @@ class ParsePipeline:
         self.quality = quality or QualityInspector()
         names = [getattr(b, "name", type(b).__name__) for b in backends]
         self.repair = repair or RepairPlanner(names)
+        self._uses_default_repair = repair is None
         self.probe = DocumentProbe(backends)
         self.planner = ParsePlanner(backends)
 
@@ -65,9 +69,17 @@ class ParsePipeline:
 
         probe = self.probe.probe(document_path, raw_bytes)
         plan = self.planner.plan(probe)
+        if getattr(self.quality, "page_count", None) is None and probe.page_count:
+            self.quality.page_count = probe.page_count
+        repair_planner = (
+            RepairPlanner(probe.available_backends)
+            if self._uses_default_repair
+            else self.repair
+        )
 
         # Execute plan steps; collect candidates per backend.
         candidates_by_backend: dict[str, list[ParseCandidate]] = {}
+        backend_errors: dict[str, str] = {}
         for step in plan.steps:
             backend = next(
                 (b for b in self.backends if getattr(b, "name", "") == step.backend),
@@ -84,6 +96,7 @@ class ParsePipeline:
             )
             result = backend.parse(request)
             if result.error:
+                backend_errors[result.backend] = result.error
                 for fallback_name in step.fallbacks:
                     fallback = next(
                         (b for b in self.backends if getattr(b, "name", "") == fallback_name),
@@ -95,6 +108,7 @@ class ParsePipeline:
                     if not fallback_result.error:
                         result = fallback_result
                         break
+                    backend_errors[fallback_result.backend] = fallback_result.error
             for candidate in result.candidates:
                 candidates_by_backend.setdefault(result.backend, []).append(candidate)
 
@@ -112,12 +126,73 @@ class ParsePipeline:
             nodes=fusion.nodes,
         )
 
-        quality = self.quality.inspect(document)
-        repair_plan = self.repair.plan(
-            quality,
+        initial_quality = self.quality.inspect(document)
+        repair_plan = repair_planner.plan(
+            initial_quality,
             primary_backend=next(iter(fusion.chosen_pages.values()), ""),
             max_pages=max_repair_pages,
         )
+
+        repair_passes = 0
+        attempted_pages: set[tuple[int, str]] = set()
+        quality = initial_quality
+        current_plan = repair_plan
+        for pass_index in range(2):
+            changed = False
+            for target in current_plan.targets:
+                key = (target.page, target.alternative_backend)
+                if key in attempted_pages:
+                    continue
+                attempted_pages.add(key)
+                target.attempted = True
+                backend = next(
+                    (b for b in self.backends if getattr(b, "name", "") == target.alternative_backend),
+                    None,
+                )
+                if backend is None:
+                    continue
+                repair_result = backend.parse(
+                    ParseRequest(
+                        document_path=document_path,
+                        raw_bytes=raw_bytes,
+                        page_range=(target.page, target.page),
+                        hints={**probe.to_plan_hints(), "repair_pass": pass_index + 1},
+                    )
+                )
+                if repair_result.error:
+                    backend_errors[repair_result.backend] = repair_result.error
+                    continue
+                if repair_result.candidates:
+                    candidates_by_backend.setdefault(repair_result.backend, []).extend(
+                        repair_result.candidates
+                    )
+                    target.repaired = True
+                    changed = True
+            if not changed:
+                break
+            repair_passes += 1
+            fusion = self.fusion.fuse(
+                candidates_by_backend,
+                canonicalizer=self.canonicalizer,
+                source_version_id=source_version_id,
+                parse_run_id=parse_run_id,
+            )
+            document = CanonicalDocument(
+                document_id=source_version_id,
+                source_version_id=source_version_id,
+                parse_run_ids=[parse_run_id],
+                nodes=fusion.nodes,
+            )
+            quality = self.quality.inspect(document)
+            if quality.verdict == "GOOD":
+                break
+            current_plan = repair_planner.plan(
+                quality,
+                primary_backend=next(iter(fusion.chosen_pages.values()), ""),
+                max_pages=max(0, max_repair_pages - len(attempted_pages)),
+            )
+            repair_plan.targets.extend(current_plan.targets)
+        repair_plan.passes = repair_passes
 
         return PipelineResult(
             document=document,
@@ -126,4 +201,7 @@ class ParsePipeline:
             repair_plan=repair_plan,
             parse_run_id=parse_run_id,
             fusion=fusion,
+            initial_quality=initial_quality,
+            repair_passes=repair_passes,
+            backend_errors=backend_errors,
         )

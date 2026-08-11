@@ -7,7 +7,6 @@ import katex from "katex";
 import { api, type AssetIR, type BlockIR, type PaperMeta, type ReferenceIR, type SectionIR } from "@/lib/api";
 import { cropPagePng, downloadDataUrl } from "@/lib/pdfCrop";
 import { AgentPanel } from "./AgentPanel";
-import { AnalyticsPanel } from "./AnalyticsPanel";
 import { PdfViewer, type PdfJumpTarget } from "./PdfViewer";
 
 // V3.21 公式渲染：$...$ 行内 + FORMULA 块 display 模式。
@@ -70,13 +69,14 @@ interface Callout {
 interface PageQualityItem {
   page: number;
   verdict: "GOOD" | "SUSPECT" | "LOW";
-  fallback_reasons: string[];
-  single_char_ratio: number;
-  tiny_block_ratio: number;
-  table_contamination: number;
+  fallback_reasons?: string[];
+  issues?: string[];
+  single_char_ratio?: number;
+  tiny_block_ratio?: number;
+  table_contamination?: number;
 }
 
-type RailTab = "toc" | "figures" | "tables" | "references" | "analytics";
+type RailTab = "toc" | "figures" | "tables" | "references";
 
 // V4.8（题目要求③）：参考文献格式问题中文文案
 const REF_ISSUE_LABELS: Record<string, string> = {
@@ -248,6 +248,11 @@ export function Workbench({ paperId }: { paperId: string }) {
   const [detail, setDetail] = useState<AssetIR | null>(null);
   const [cropping, setCropping] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState("");
+  const [selectionMenu, setSelectionMenu] = useState<{
+    text: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [importingRef, setImportingRef] = useState<string | null>(null);
   const [importNotice, setImportNotice] = useState("");
   const [resolvingRef, setResolvingRef] = useState<string | null>(null);
@@ -263,7 +268,6 @@ export function Workbench({ paperId }: { paperId: string }) {
   } | null>(null);
   const [meta, setMeta] = useState<PaperMeta | null>(null);
   const [pageQuality, setPageQuality] = useState<PageQualityItem[]>([]);
-  const [qualityDismissed, setQualityDismissed] = useState(false);
   // 渐进阅读：视口进入触发翻译 + 预取下一页
   const [translatingPages, setTranslatingPages] = useState<Set<number>>(new Set());
   // 证据定位：沉浸模式高亮字符区间 / 原版模式 bbox overlay
@@ -788,12 +792,28 @@ export function Workbench({ paperId }: { paperId: string }) {
     }
   }, [paperId, resolveAllState?.state]);
 
+  const askAboutSelection = useCallback(
+    (action: "ask" | "explain" | "translate") => {
+      if (!selectionMenu) return;
+      const prefix =
+        action === "ask"
+          ? "请结合论文上下文回答这段话相关的问题："
+          : action === "explain"
+            ? "请解释这段话的含义、前提和它在论文中的作用："
+            : "请准确翻译这段话，并保留术语、数字和引用：";
+      setPendingPrompt(`${prefix}\n\n${selectionMenu.text}`);
+      setAgentOpen(true);
+      setSelectionMenu(null);
+      window.getSelection()?.removeAllRanges();
+    },
+    [selectionMenu]
+  );
+
   return (
     <div className="flex h-screen flex-col bg-[var(--pl-canvas)] text-[var(--pl-ink)]">
       <header className="relative z-30 flex h-16 shrink-0 items-center gap-4 border-b border-[var(--pl-line)] bg-[rgba(247,246,242,.94)] px-3 backdrop-blur md:px-4">
-        <Link href="/library" className="flex shrink-0 items-center gap-2 rounded-lg p-1.5 transition hover:bg-white/70" title="返回论文库">
-          <span className="grid size-7 place-items-center rounded-[9px] bg-[var(--pl-clay)] text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(50,30,20,.16)]">P</span>
-          <span className="hidden text-xs font-medium text-[var(--pl-muted)] sm:inline">论文库</span>
+        <Link href="/library" className="grid size-9 shrink-0 place-items-center rounded-lg text-base text-[var(--pl-muted)] transition hover:bg-white/70 hover:text-[var(--pl-ink)]" title="返回论文库">
+          ←
         </Link>
         <div className="h-7 w-px shrink-0 bg-[var(--pl-line)]" />
         <div className="min-w-0 flex-1">
@@ -807,29 +827,18 @@ export function Workbench({ paperId }: { paperId: string }) {
         <div className="flex shrink-0 items-center gap-1.5">
           <button
             onClick={() => setRailOpen((value) => !value)}
+            aria-label={railOpen ? "隐藏目录" : "显示目录"}
             aria-pressed={railOpen}
-            className={`hidden h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition sm:flex ${railOpen ? "bg-white text-[var(--pl-ink)] shadow-[0_1px_2px_rgba(38,34,28,.06)]" : "text-[var(--pl-muted)] hover:bg-white/60"}`}
+            className="hidden size-9 place-items-center rounded-lg text-[var(--pl-muted)] transition hover:bg-white/60 hover:text-[var(--pl-ink)] sm:grid"
           >
-            <span className="font-mono">☷</span> 导航
+            ☷
           </button>
-          <div className="flex overflow-hidden rounded-lg border border-[var(--pl-line)] bg-white/55 p-0.5">
-            <button
-              onClick={() => setMode("immersive")}
-              className={`rounded-md px-2.5 py-1.5 text-[11px] transition ${
-                mode === "immersive" ? "bg-[var(--pl-ink)] text-white shadow-sm" : "text-[var(--pl-muted)] hover:text-[var(--pl-ink)]"
-              }`}
-            >
-              阅读
-            </button>
-            <button
-              onClick={() => setMode("pdf")}
-              className={`rounded-md px-2.5 py-1.5 text-[11px] transition ${
-                mode === "pdf" ? "bg-[var(--pl-ink)] text-white shadow-sm" : "text-[var(--pl-muted)] hover:text-[var(--pl-ink)]"
-              }`}
-            >
-              PDF
-            </button>
-          </div>
+          <button
+            onClick={() => setMode((current) => current === "pdf" ? "immersive" : "pdf")}
+            className="h-9 rounded-lg px-2.5 text-[11px] text-[var(--pl-muted)] transition hover:bg-white/60 hover:text-[var(--pl-ink)]"
+          >
+            {mode === "pdf" ? "阅读" : "PDF"}
+          </button>
           <div className="relative">
             <button
               type="button"
@@ -870,7 +879,6 @@ export function Workbench({ paperId }: { paperId: string }) {
               </div>
             )}
           </div>
-          <Link href={`/compare?papers=${paperId}`} className="hidden h-9 items-center rounded-lg px-2.5 text-[11px] text-[var(--pl-muted)] transition hover:bg-white/60 hover:text-[var(--pl-ink)] lg:flex" title="从当前论文发起多篇对比">⇄ 对比</Link>
           <button
             onClick={() => setAgentOpen((value) => !value)}
             aria-pressed={agentOpen}
@@ -887,42 +895,6 @@ export function Workbench({ paperId }: { paperId: string }) {
         </div>
       )}
 
-      {/* 解析质量门：低可信页面如实展示，不悄悄假装正确 */}
-      {!qualityDismissed && pageQuality.some((item) => item.verdict !== "GOOD") && (
-        <div className="px-4 py-2 text-sm text-amber-700 bg-amber-50 border-b border-amber-100 flex items-center gap-3">
-          <span className="shrink-0">⚠</span>
-          <span className="min-w-0 flex-1">
-            部分页面版面解析可信度较低：
-            {pageQuality
-              .filter((item) => item.verdict !== "GOOD")
-              .slice(0, 5)
-              .map((item) => (
-                <span key={item.page} title={item.fallback_reasons.join("; ")}>
-                  第 {item.page} 页
-                  {item.fallback_reasons.includes("TOO_MANY_TINY_BLOCKS")
-                    ? "（碎片过多）"
-                    : item.fallback_reasons.includes("TABLE_TEXT_IN_BODY")
-                      ? "（表格文字混入正文）"
-                      : ""}
-                </span>
-              ))
-              .reduce<React.ReactNode[]>((nodes, node, index, array) => {
-                if (index === 0) return [node];
-                return [...nodes, "、", node];
-              }, [])}
-            {pageQuality.filter((item) => item.verdict !== "GOOD").length > 5 ? " 等" : ""}
-            ，已按低可信处理。
-          </span>
-          <button
-            onClick={() => setQualityDismissed(true)}
-            className="shrink-0 text-amber-500 hover:text-amber-700"
-            aria-label="关闭解析质量提示"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       {/* three columns */}
       <div className="flex-1 flex min-h-0">
         {/* left rail */}
@@ -931,32 +903,23 @@ export function Workbench({ paperId }: { paperId: string }) {
             style={{ width: railWidth }}
             className="flex min-h-0 shrink-0 flex-col border-r border-[var(--pl-line)] bg-[var(--pl-sidebar)]"
           >
-            <div className="px-4 pb-2 pt-4">
-              <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--pl-faint)]">论文内容</p>
-            </div>
-            <nav className="grid grid-cols-5 gap-0.5 border-b border-[var(--pl-line)] px-2 pb-2 text-[10px]">
-              {(
-                [
-                  ["toc", "目录"],
-                  ["analytics", "洞察"],
-                  ["figures", "图"],
-                  ["tables", "表"],
-                  ["references", "引用"],
-                ] as [RailTab, string][]
-              ).map(([key, label]) => (
+            <div className="border-b border-[var(--pl-line)] px-4 pb-3 pt-4">
+              <div className="flex items-center justify-between">
                 <button
-                  key={key}
-                  onClick={() => setRailTab(key)}
-                  className={`rounded-md px-1 py-2 whitespace-nowrap transition ${
-                    railTab === key
-                      ? "bg-white font-medium text-[var(--pl-clay)] shadow-[0_1px_2px_rgba(38,34,28,.06)]"
-                      : "text-[var(--pl-muted)] hover:bg-white/45 hover:text-[var(--pl-ink)]"
-                  }`}
+                  type="button"
+                  onClick={() => setRailTab("toc")}
+                  className={`text-xs font-medium ${railTab === "toc" ? "text-[var(--pl-ink)]" : "text-[var(--pl-clay)]"}`}
                 >
-                  {label}
+                  {railTab === "toc" ? "目录" : "← 返回目录"}
                 </button>
-              ))}
-            </nav>
+                {railTab !== "toc" && <span className="text-xs text-[var(--pl-muted)]">{railTab === "figures" ? "图" : railTab === "tables" ? "表" : "引用"}</span>}
+              </div>
+              <nav className="mt-3 flex gap-4 text-[10px] text-[var(--pl-faint)]">
+                {([ ["figures", `图 ${figures.length}`], ["tables", `表 ${tables.length}`], ["references", `引用 ${references.length}`] ] as [RailTab, string][]).map(([key, label]) => (
+                  <button key={key} type="button" onClick={() => setRailTab(key)} className={`transition hover:text-[var(--pl-ink)] ${railTab === key ? "text-[var(--pl-clay)]" : ""}`}>{label}</button>
+                ))}
+              </nav>
+            </div>
             <div className="flex-1 overflow-y-auto p-2.5">
               {railTab === "toc" &&
                 sections.map((section) => (
@@ -1019,8 +982,11 @@ export function Workbench({ paperId }: { paperId: string }) {
               )}
               {railTab === "references" && (
                 <div className="p-1">
-                  {/* 参考文献：自动提取 → 格式检查 → 在线核验 */}
-                  <div className="mb-2 rounded-lg border border-[#e6e7ea] bg-white p-2">
+                  <details className="mb-2 rounded-lg border border-[#e6e7ea] bg-white p-2">
+                    <summary className="cursor-pointer text-[11px] text-[var(--pl-muted)]">
+                      引用核验工具
+                    </summary>
+                    <div className="mt-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-medium text-[#3d4451]">
                         参考文献
@@ -1068,7 +1034,8 @@ export function Workbench({ paperId }: { paperId: string }) {
                       · 已核验{" "}
                       {references.filter((item) => item.identity_status === "VERIFIED").length} 条
                     </p>
-                  </div>
+                    </div>
+                  </details>
                   <div className="space-y-1.5">
                   {references
                     .filter(
@@ -1150,10 +1117,6 @@ export function Workbench({ paperId }: { paperId: string }) {
                   </div>
                 </div>
               )}
-              {railTab === "analytics" && (
-                // V4.4 单篇旗舰：方法图谱/实验记录/复现清单/主张图
-                <AnalyticsPanel paperId={paperId} />
-              )}
             </div>
           </aside>
         )}
@@ -1170,7 +1133,24 @@ export function Workbench({ paperId }: { paperId: string }) {
         )}
 
         {/* center reader */}
-        <main className="min-w-0 flex-1 overflow-y-auto bg-[var(--pl-canvas)]" data-reader-scroll>
+        <main
+          className="min-w-0 flex-1 overflow-y-auto bg-[var(--pl-canvas)]"
+          data-reader-scroll
+          onMouseUp={() => {
+            const selection = window.getSelection();
+            const text = selection?.toString().trim() ?? "";
+            if (!selection || selection.rangeCount === 0 || text.length < 2 || text.length > 1800) {
+              setSelectionMenu(null);
+              return;
+            }
+            const rect = selection.getRangeAt(0).getBoundingClientRect();
+            setSelectionMenu({
+              text,
+              x: Math.min(window.innerWidth - 210, Math.max(12, rect.left + rect.width / 2 - 96)),
+              y: Math.max(12, rect.top - 44),
+            });
+          }}
+        >
           {mode === "immersive" ? (
             <article className="mx-auto my-5 max-w-[900px] border border-[var(--pl-line)] bg-white px-7 py-10 shadow-[0_18px_55px_rgba(45,39,31,.06)] sm:my-8 sm:rounded-[18px] sm:px-12 lg:px-16 lg:py-14">
               {meta && (meta.title || meta.authors || meta.abstract) && (
@@ -1217,6 +1197,18 @@ export function Workbench({ paperId }: { paperId: string }) {
                 >
                   <div className="mb-6 flex items-center justify-between border-b border-[var(--pl-line)] pb-2 font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--pl-faint)]">
                     <span>PDF · PAGE {page}</span>
+                    {pageQuality.some((item) => item.page === page && item.verdict !== "GOOD") && (
+                      <span
+                        className="mr-auto ml-3 rounded bg-amber-50 px-1.5 py-0.5 normal-case tracking-normal text-amber-700"
+                        title={(
+                          pageQuality.find((item) => item.page === page)?.issues ??
+                          pageQuality.find((item) => item.page === page)?.fallback_reasons ??
+                          []
+                        ).join("；")}
+                      >
+                        此页解析需留意
+                      </span>
+                    )}
                     {displayMode !== "original" && (
                       <button
                         onClick={() => void translatePages([page], [page])}
@@ -1436,6 +1428,28 @@ export function Workbench({ paperId }: { paperId: string }) {
             />
           )}
         </main>
+
+        {selectionMenu && (
+          <div
+            style={{ left: selectionMenu.x, top: selectionMenu.y }}
+            className="fixed z-50 flex overflow-hidden rounded-lg border border-[var(--pl-line)] bg-white p-1 shadow-lg"
+          >
+            {([[
+              "ask",
+              "问一下",
+            ], ["explain", "解释"], ["translate", "翻译"]] as const).map(([action, label]) => (
+              <button
+                key={action}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => askAboutSelection(action)}
+                className="rounded-md px-2.5 py-1.5 text-xs hover:bg-[var(--pl-sidebar)]"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* right agent panel */}
         {agentOpen && (

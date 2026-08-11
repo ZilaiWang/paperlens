@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --pl-bg: #f4f2ed;
-  --pl-canvas: #f7f6f2;
-  --pl-sidebar: #ece9e2;
+  --pl-bg: #f4f6f9;
+  --pl-canvas: #f7f8fa;
+  --pl-sidebar: #eef1f5;
   --pl-panel: #ffffff;
   --pl-text: #272521;
   --pl-ink: #26241f;
@@ -13,10 +13,10 @@
   --pl-border: #e3e0d9;
   --pl-line: #dedad1;
   --pl-line-strong: #cec8bd;
-  --pl-accent: #b95738;
-  --pl-clay: #b95738;
-  --pl-clay-dark: #98452e;
-  --pl-translation-bg: #f5f1e9;
+  --pl-accent: #264f87;
+  --pl-clay: #264f87;
+  --pl-clay-dark: #183b69;
+  --pl-translation-bg: #f0f4f9;
   --pl-serif: Georgia, "Times New Roman", "Noto Serif SC", serif;
 
   /* 统一 motion token：组件不再各自写 200ms/ease */
@@ -42,7 +42,7 @@ body {
 
 .translation-block {
   background: var(--pl-translation-bg);
-  border-left: 2px solid #d9c4b7;
+  border-left: 2px solid #bdcce0;
   border-radius: 0 6px 6px 0;
   padding: 0.75rem 0.95rem;
   margin: 0.3rem 0 1.1rem;
@@ -168,5 +168,5 @@ mark.pl-evidence.flashing {
 }
 
 ::selection {
-  background: rgba(185, 87, 56, 0.18);
+  background: rgba(38, 79, 135, 0.18);
 }

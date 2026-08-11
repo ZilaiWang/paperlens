@@ -41,6 +41,9 @@ class BenchmarkEntry(BaseModel):
     formula_node_count: int = 0
     issues: list[str] = Field(default_factory=list)
     duration_ms: int = 0
+    repair_passes: int = 0
+    object_quality: dict[str, float] = Field(default_factory=dict)
+    backend_errors: dict[str, str] = Field(default_factory=dict)
 
 
 class BenchmarkReport(BaseModel):
@@ -78,6 +81,9 @@ def run_benchmark(
                 formula_node_count=result.quality.formula_node_count,
                 issues=result.quality.issues,
                 duration_ms=duration,
+                repair_passes=result.repair_passes,
+                object_quality=result.quality.object_quality,
+                backend_errors=result.backend_errors,
             )
         )
 

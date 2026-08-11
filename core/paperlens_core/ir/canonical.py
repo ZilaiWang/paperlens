@@ -252,3 +252,60 @@ def canonical_document_from_blocks(
         parse_run_ids=[parse_run_id] if parse_run_id else [],
         nodes=nodes,
     )
+
+
+def blocks_from_canonical_document(
+    document: CanonicalDocument,
+    *,
+    paper_id: str = "",
+) -> list[Any]:
+    """Project canonical nodes into the V1 Block view used by reader services.
+
+    CanonicalDocument remains the source of truth.  This function is an
+    explicit compatibility boundary for section detection, chunking and older
+    API payloads while those consumers migrate to canonical nodes.
+    """
+    from ..documents import Block, BlockType, SourceScope, stable_block_id
+
+    type_map = {
+        NodeType.SECTION: BlockType.HEADING,
+        NodeType.HEADING: BlockType.HEADING,
+        NodeType.PARAGRAPH: BlockType.TEXT,
+        NodeType.CAPTION: BlockType.CAPTION,
+        NodeType.FIGURE: BlockType.FIGURE,
+        NodeType.TABLE: BlockType.TABLE,
+        NodeType.TABLE_ROW: BlockType.TABLE_ROW,
+        NodeType.FORMULA: BlockType.FORMULA,
+        NodeType.REFERENCE: BlockType.REFERENCE_ENTRY,
+    }
+    blocks: list[Block] = []
+    for index, node in enumerate(sorted(document.nodes, key=lambda item: item.order_index)):
+        bbox = node.bbox or (0.0, 0.0, 0.0, 0.0)
+        metadata = dict(node.metadata)
+        metadata.update(
+            {
+                "canonical_node_id": node.node_id,
+                "revision_id": node.revision_id,
+                "parse_run_ids": node.parse_run_ids,
+                "provenance": [item.model_dump(mode="json") for item in node.provenance],
+            }
+        )
+        blocks.append(
+            Block(
+                block_id=stable_block_id(document.source_version_id, node.page, bbox, node.text),
+                paper_id=paper_id,
+                paper_version_id=document.source_version_id,
+                page=node.page,
+                block_index=index,
+                block_type=type_map.get(node.node_type, BlockType.TEXT),
+                bbox=bbox,
+                text=node.text,
+                font_size=metadata.get("font_size"),
+                is_bold=bool(metadata.get("is_bold")),
+                source_scope=SourceScope.FULL_TEXT,
+                content_sha256=node.content_hash,
+                paragraph_index=index,
+                metadata=metadata,
+            )
+        )
+    return blocks

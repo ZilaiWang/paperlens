@@ -14,14 +14,13 @@ compatibility can be discussed first.
 - Generate or validate frontend API types from the FastAPI OpenAPI schema.
 - Establish repeatable release tags and keep one source of truth for versioning.
 
-## Next: improve document and retrieval quality
+## Next: measure Parser v2 and Paper Agent quality
 
 - Expand the parser corpus with legally redistributable or manifest-downloaded
   examples and explicit layout labels.
-- Measure section, paragraph, table, formula, and reading-order accuracy.
-- Add an optional heavy parser backend behind `ParseRouter` rather than replacing
-  the lightweight path.
-- Add OCR as an explicit opt-in backend with provenance and confidence.
+- Measure section, paragraph, table, formula, reference, and reading-order accuracy.
+- Expand Docling/GROBID/PaddleOCR-VL provider fixtures and deployment recipes.
+- Label difficult pages and AgentBench question/evidence expectations.
 - Build a labeled retrieval benchmark, then evaluate BM25 plus semantic hybrid
   retrieval and reciprocal-rank fusion.
 
@@ -50,6 +49,9 @@ compatibility can be discussed first.
 
 - Rewriting PaperLens on the OpenCode codebase or TypeScript stack.
 - A general-purpose coding-agent runtime.
+- Research Project, Hypothesis Board, Experiment Center, and AutoResearch as
+  primary product surfaces.
+- A terminology-management SaaS; term packs remain versioned reader assets.
 - Automatic leaderboard-style winner selection across incomparable papers.
 - Microservices before the single-process bottlenecks are measured.
 

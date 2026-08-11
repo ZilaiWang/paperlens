@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import pytest
+from fastapi.testclient import TestClient
 from paperlens_core.comparison import ComparisonCell, CrossPaperAnswer
+from paperlens_core.documents import Paper, PaperVersion
 from paperlens_core.llm import StaticJSONModel
 from paperlens_core.models import CoverageStatus
 from pydantic import ValidationError
@@ -53,3 +55,50 @@ def test_comparison_cell_translation_uses_stable_keys() -> None:
     assert translate_comparison_cells(model, cells) == {
         "version-1|method_core": "一种证据约束方法"
     }
+
+
+def test_versions_endpoint_returns_serializable_rows(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Keep the reader bootstrap contract from regressing to row attributes."""
+    from server.app.repository import Repository
+
+    repo = Repository(tmp_path / "versions.db")
+    monkeypatch.setattr("server.app.main.repository", repo)
+    repo.create_paper(
+        Paper(
+            paper_id="paper-1",
+            canonical_title="A paper",
+            created_at="2026-08-11T00:00:00Z",
+        )
+    )
+    repo.create_version(
+        PaperVersion(
+            version_id="version-1",
+            paper_id="paper-1",
+            version_label="v1",
+            source="UPLOAD",
+            file_name="paper.pdf",
+            file_sha256="sha",
+            page_count=3,
+            created_at="2026-08-11T00:00:00Z",
+        )
+    )
+
+    response = TestClient(app).get("/api/papers/paper-1/versions")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "version_id": "version-1",
+            "paper_id": "paper-1",
+            "version_label": "v1",
+            "source": "UPLOAD",
+            "file_name": "paper.pdf",
+            "file_sha256": "sha",
+            "file_path": "",
+            "page_count": 3,
+            "parse_status": "READY",
+            "created_at": "2026-08-11T00:00:00Z",
+        }
+    ]

@@ -16,6 +16,14 @@ class BaseBackend:
 
     def probe(self, document_path: str, raw_bytes: bytes | None = None) -> BackendProbe:
         try:
+            available = getattr(self, "available", None)
+            if callable(available) and not available():
+                return BackendProbe(
+                    backend=self.name,
+                    available=False,
+                    capabilities=set(),
+                    note="optional backend is not configured",
+                )
             caps = self.capabilities()
             return BackendProbe(backend=self.name, available=True, capabilities=caps)
         except Exception:  # noqa: BLE001 - probe never raises

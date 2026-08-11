@@ -85,17 +85,12 @@ export default function HomePage() {
   return (
     <main className="min-h-screen px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
       <div className="mx-auto max-w-[980px]">
-        <header className="mb-10 flex items-end justify-between gap-6">
+        <header className="mb-8">
           <div>
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--pl-clay)]">
-              Evidence-native paper reader
-            </p>
-            <h1 className="max-w-2xl text-[34px] font-medium leading-[1.14] tracking-[-0.035em] text-[var(--pl-ink)] sm:text-[42px]">
-              从一篇论文开始，<br className="hidden sm:block" />读懂原文，也找到每个结论的证据。
+            <h1 className="max-w-2xl text-[32px] font-semibold leading-tight tracking-[-0.035em] text-[var(--pl-ink)] sm:text-[38px]">
+              读一篇论文
             </h1>
-          </div>
-          <div className="hidden pb-1 text-right font-mono text-[10px] leading-5 text-[var(--pl-faint)] lg:block">
-            LOCAL-FIRST<br />WORKSPACE ISOLATED
+            <p className="mt-2 text-sm text-[var(--pl-muted)]">导入 PDF 或 arXiv 链接，开始结构化阅读与证据问答。</p>
           </div>
         </header>
 
@@ -121,7 +116,7 @@ export default function HomePage() {
             onKeyDown={(event) => {
               if ((event.metaKey || event.ctrlKey) && event.key === "Enter") void importArxiv();
             }}
-            placeholder="粘贴 arXiv 链接 / ID，或把 PDF 拖到这里…"
+            placeholder="粘贴 arXiv 链接或编号，也可以把 PDF 拖到这里"
             className="block w-full resize-none border-0 bg-transparent px-6 pt-6 text-[15px] leading-6 text-[var(--pl-ink)] outline-none placeholder:text-[var(--pl-faint)]"
           />
           <div className="flex flex-wrap items-center gap-2 border-t border-[var(--pl-line)] bg-[#fbfaf7] px-3 py-3">
@@ -143,7 +138,7 @@ export default function HomePage() {
                 if (file) void upload(file);
               }}
             />
-            <span className="hidden font-mono text-[10px] text-[var(--pl-faint)] sm:inline">PDF · ARXIV · 证据溯源</span>
+            <span className="hidden text-[11px] text-[var(--pl-faint)] sm:inline">解析完成后直接进入阅读器</span>
             <button
               type="button"
               onClick={() => void importArxiv()}
@@ -171,7 +166,9 @@ export default function HomePage() {
                   <div className="h-full bg-[var(--pl-clay)] transition-all duration-500" style={{ width: `${progress}%` }} />
                 </div>
                 {job && (
-                  <div className="mt-4 grid gap-1.5 sm:grid-cols-2">
+                  <details className="mt-3 text-xs text-[var(--pl-muted)]">
+                    <summary className="cursor-pointer select-none text-[11px] text-[var(--pl-faint)]">查看解析细节</summary>
+                    <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
                     {STAGES.filter(([key]) => job.stages[key]).map(([key, label]) => {
                       const status = job.stages[key]?.status;
                       return (
@@ -183,14 +180,15 @@ export default function HomePage() {
                         </div>
                       );
                     })}
-                  </div>
+                    </div>
+                  </details>
                 )}
               </>
             )}
           </section>
         )}
 
-        <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="mt-12">
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--pl-muted)]">最近论文</h2>
@@ -213,19 +211,6 @@ export default function HomePage() {
             )}
           </section>
 
-          <aside>
-            <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--pl-muted)]">阅读工具</h2>
-            <div className="space-y-2">
-              <Link href="/library" className="block rounded-xl border border-[var(--pl-line)] bg-white/55 p-4 transition hover:bg-white">
-                <div className="text-[13px] font-medium">浏览论文库</div>
-                <p className="mt-1 text-[11px] leading-4 text-[var(--pl-faint)]">继续阅读、筛选和管理已导入论文</p>
-              </Link>
-              <Link href="/compare" className="block rounded-xl border border-[var(--pl-line)] bg-white/55 p-4 transition hover:bg-white">
-                <div className="text-[13px] font-medium">比较多篇论文</div>
-                <p className="mt-1 text-[11px] leading-4 text-[var(--pl-faint)]">从方法、实验与证据维度对齐阅读</p>
-              </Link>
-            </div>
-          </aside>
         </div>
       </div>
     </main>

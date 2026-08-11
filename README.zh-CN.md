@@ -11,7 +11,7 @@
 [参与贡献](CONTRIBUTING.md) · [路线图](docs/roadmap.md)
 
 [![CI](https://github.com/ZilaiWang/paperlens/actions/workflows/ci.yml/badge.svg)](https://github.com/ZilaiWang/paperlens/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/badge/release-v1.2.0-b95738.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.3.0-264f87.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)](core/pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -19,9 +19,11 @@
 
 ## 产品导览
 
+![PaperLens 深度阅读首页](docs/images/home-v13.jpg)
+
 ### 先把一篇论文读懂
 
-![PaperLens 双语单篇阅读器](docs/images/reader.jpg)
+![PaperLens 双语单篇阅读器](docs/images/reader-v13.jpg)
 
 单篇阅读器是 PaperLens 的产品中心。正文以可读的论文版式重建，同时保留一键
 返回原版 PDF；目录、图表、引用、论文洞察、翻译和证据问答都围绕当前阅读上下文
@@ -31,7 +33,7 @@
 
 | 论文库 | 阅读与翻译设置 |
 | --- | --- |
-| ![PaperLens 论文库](docs/images/library.jpg) | ![PaperLens 翻译设置](docs/images/translation-settings.jpg) |
+| ![PaperLens 论文库](docs/images/library-v13.jpg) | ![PaperLens 翻译设置](docs/images/translation-settings-v13.jpg) |
 
 论文库负责打开和选择论文，不要求用户先理解另一套“研究项目”模型。选择两到三篇
 论文即可进入对比模式。术语和固定译法位于阅读器设置中，作为双语阅读的内部能力，
@@ -39,7 +41,7 @@
 
 ### 基于证据进行多篇比较
 
-![PaperLens 多篇论文对比](docs/images/compare.jpg)
+![PaperLens 多篇论文对比](docs/images/compare-v13.jpg)
 
 多篇比较从正在阅读的论文自然发起。系统先独立抽取每篇论文，再对齐方法、实验、
 指标、局限和自定义维度；不可比条件会被明确保留，有证据的结论可以继续跳回原文。
@@ -57,16 +59,18 @@ PaperLens 先用确定性解析构建文档表示，再让检索和大模型工�
 
 - **结构化导入：**支持上传 PDF 和导入 arXiv；较新的 arXiv 论文优先解析
   结构化 HTML，无法获取时回退 PDF。
-- **版面感知解析：**结合 PyMuPDF 几何信息与 pdfplumber 回退路径，重建
-  多栏段落、识别章节，并保留图表与公式占位。
+- **Canonical-first Parser v2：**先探测文档，再由可选 Docling 与本地
+  PyMuPDF/pdfplumber 后端规划、融合结构；分别评估段落、顺序、表格、公式和
+  引用品质，只对弱页定向修复。GROBID 与 PaddleOCR-VL 是可选语义/视觉后端。
 - **双语阅读：**渐进式翻译，并保护术语、引用、数字和公式。
 - **证据问答：**BM25 段落检索、原子主张生成、确定性守卫与语义归因核验，
   最终回答可跳回原文。
-- **单篇分析：**生成方法图谱、结构化实验记录、论文档案和质量评估。
+- **自适应 Paper Agent：**快速问题直接进入阅读问答；复杂问题自动规划 3–8 个
+  证据、方法、实验、复现或批判性检查任务，并区分事实、推断、判断和未知状态。
 - **多篇比较：**比较 2–3 个论文版本，区分“没有检索到”和“确认未报告”，
   不对数据集或指标条件不同的结果做不可靠排名。
-- **上下文化研究能力：**问题、假设、对比集和可复现 Agent 运行用于扩展当前
-  论文工作流，而不是另建一个与阅读并列的产品入口。
+- **可安装术语包：**领域术语包自动参与翻译，个人译法只作为明确覆盖项；术语能力
+  留在翻译设置中，不再成为与单篇、多篇并列的产品入口。
 - **参考文献链路：**抽取参考文献、检查格式、通过学术元数据服务核验身份，
   并可导入公开的 arXiv 来源。
 
@@ -146,6 +150,7 @@ cd web && bun run build
 ```bash
 .venv/bin/python scripts/fetch_eval_corpus.py
 .venv/bin/python scripts/eval_parse.py --corpus tests/eval_corpus
+PYTHONPATH=core .venv/bin/python scripts/agent_bench.py
 ```
 
 提交改动前请阅读[开发指南](docs/development.md)、[测试指南](docs/testing.md)
@@ -153,7 +158,7 @@ cd web && bun run build
 
 ## 项目状态与边界
 
-PaperLens 1.2 适合作为自托管、单进程应用使用。匿名工作区使用不透明的
+PaperLens 1.3 适合作为自托管、单进程应用使用。匿名工作区使用不透明的
 HttpOnly 会话 Cookie 与存储层 workspace 隔离，开发环境 CORS 也只允许显式配置
 的前端来源。这属于身份隔离，并不等同于用户账号认证；项目目前仍不是多租户云
 服务。SQLite 与进程内任务仍是明确边界。未增加账号认证、TLS 和严格反向代理

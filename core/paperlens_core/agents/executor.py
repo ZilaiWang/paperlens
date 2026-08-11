@@ -14,6 +14,10 @@ from collections import deque
 
 from .models import (
     ArtifactProduced,
+    FindingKind,
+    ReproductionRequirement,
+    RequirementState,
+    ResearchFinding,
     ResearchRun,
     RunStatus,
     TaskDefinition,
@@ -91,7 +95,11 @@ def execute_run(
         result.duration_ms = int((time.monotonic() - started) * 1000)
         results[task.task_id] = result
         if result.ok and result.output and task.task_type != TaskType.PRODUCE:
-            run.findings.append(f"[{task.name}] {_summarize(result.output)}")
+            summary = f"[{task.name}] {_summarize(result.output)}"
+            run.findings.append(summary)
+            run.structured_findings.extend(_extract_findings(task, result.output, summary))
+            if task.capability == "reproduction.inspect":
+                run.reproduction_requirements = _reproduction_tree(result.output)
 
     # find task order for the produced artifact
     produced: list[str] = []
@@ -128,26 +136,7 @@ def _run_single_task(
     registry: ToolRegistry,
     question_context: str,
 ) -> TaskResult:
-    if task.task_type == TaskType.RETRIEVE:
-        tool_result = registry.invoke(
-            task.tool,
-            ToolContext(
-                workspace_id=run.workspace_id,
-                project_id=run.project_id,
-                run_id=run.run_id,
-                question=run.question,
-                params=task.params,
-            ),
-        )
-        return TaskResult(
-            task_id=task.task_id,
-            status=TaskStatus.COMPLETED if tool_result.ok else TaskStatus.FAILED,
-            ok=tool_result.ok,
-            output=tool_result.data,
-            error=tool_result.error,
-        )
-
-    if task.task_type in (TaskType.PROFILE, TaskType.COMPARE):
+    if task.tool:
         tool_result = registry.invoke(
             task.tool,
             ToolContext(
@@ -225,7 +214,12 @@ def _assemble_report(run: ResearchRun, task: TaskDefinition) -> str:
     else:
         lines.append("本次运行未能产生结构化发现（请检查工具接线与语料）。")
     lines.append("")
-    lines.append("> 本文档由 Research Agent 自动生成（改进方案1 §十六）。")
+    if run.structured_findings:
+        lines.extend(["## 证据状态", ""])
+        for finding in run.structured_findings[:12]:
+            evidence = f" · 证据 {', '.join(finding.evidence_ids[:3])}" if finding.evidence_ids else ""
+            lines.append(f"- **{finding.kind.value}** {finding.statement}{evidence}")
+    lines.append("> 本回答由 Paper Agent 生成；推断与评价已和论文事实分开标注。")
     return "\n".join(lines)
 
 
@@ -247,6 +241,75 @@ def _summarize(output: dict[str, object]) -> str:
     return text
 
 
+def _extract_findings(
+    task: TaskDefinition,
+    output: dict[str, object],
+    fallback: str,
+) -> list[ResearchFinding]:
+    explicit = output.get("findings")
+    if isinstance(explicit, list):
+        parsed: list[ResearchFinding] = []
+        for item in explicit:
+            if isinstance(item, dict):
+                parsed.append(ResearchFinding.model_validate({**item, "source_task_id": task.task_id}))
+        if parsed:
+            return parsed
+    results = output.get("results")
+    if isinstance(results, list) and results:
+        item = results[0] if isinstance(results[0], dict) else {}
+        text = str(item.get("text") or item.get("excerpt") or fallback)[:500]
+        evidence_id = str(item.get("unit_id") or item.get("chunk_id") or "")
+        return [
+            ResearchFinding(
+                statement=text,
+                kind=FindingKind.FACT,
+                evidence_ids=[evidence_id] if evidence_id else [],
+                confidence=0.78 if evidence_id else 0.55,
+                caveats=[] if evidence_id else ["未定位到稳定证据标识"],
+                source_task_id=task.task_id,
+            )
+        ]
+    return [
+        ResearchFinding(
+            statement=fallback,
+            kind=FindingKind.UNKNOWN,
+            confidence=0.35,
+            caveats=["工具返回了摘要，但没有可引用的细粒度证据"],
+            source_task_id=task.task_id,
+        )
+    ]
+
+
+def _reproduction_tree(output: dict[str, object]) -> list[ReproductionRequirement]:
+    results = output.get("results")
+    rows = [item for item in results if isinstance(item, dict)] if isinstance(results, list) else []
+    corpus = " ".join(str(item.get("text") or "") for item in rows).lower()
+    evidence_ids = [
+        str(item.get("unit_id") or item.get("chunk_id"))
+        for item in rows
+        if item.get("unit_id") or item.get("chunk_id")
+    ][:5]
+    requirements = {
+        "数据与划分": ("dataset", "data split", "training set", "数据集"),
+        "代码与版本": ("github", "code", "implementation", "代码"),
+        "运行环境": ("cuda", "gpu", "pytorch", "environment", "环境"),
+        "训练超参数": ("learning rate", "batch size", "epoch", "optimizer", "超参数"),
+        "评测协议": ("metric", "evaluation", "benchmark", "评测", "指标"),
+    }
+    nodes: list[ReproductionRequirement] = []
+    for label, markers in requirements.items():
+        matched = next((marker for marker in markers if marker in corpus), "")
+        nodes.append(
+            ReproductionRequirement(
+                requirement=label,
+                state=RequirementState.SPECIFIED if matched else RequirementState.MISSING,
+                value=f"论文证据中出现：{matched}" if matched else "论文正文未明确定位",
+                evidence_ids=evidence_ids if matched else [],
+            )
+        )
+    return nodes
+
+
 def run_dag(
     run: ResearchRun,
     *,
@@ -261,5 +324,10 @@ def run_dag(
         "ok_count": sum(1 for r in results if r.ok),
         "artifact": run.artifact.model_dump(mode="json") if run.artifact else None,
         "findings": run.findings,
+        "structured_findings": [
+            finding.model_dump(mode="json") for finding in run.structured_findings
+        ],
+        "depth": run.depth.value,
+        "intent": run.intent,
         "tasks": [r.model_dump(mode="json") for r in results],
     }

@@ -22,16 +22,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
   if (pathname.startsWith("/paper/")) return children;
 
   return (
-    <div className="min-h-screen bg-[var(--pl-canvas)] text-[var(--pl-ink)] md:grid md:grid-cols-[232px_minmax(0,1fr)]">
+    <div className="min-h-screen bg-[var(--pl-canvas)] text-[var(--pl-ink)] md:grid md:grid-cols-[212px_minmax(0,1fr)]">
       <aside className="hidden h-screen border-r border-[var(--pl-line)] bg-[var(--pl-sidebar)] px-3 py-4 md:sticky md:top-0 md:flex md:flex-col">
         <Link href="/" className="mb-7 flex items-center gap-2.5 px-2">
           <span className="grid size-7 place-items-center rounded-[9px] bg-[var(--pl-clay)] text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(50,30,20,.16)]">
             P
           </span>
           <span className="text-[15px] font-semibold tracking-[-0.02em]">PaperLens</span>
-          <span className="ml-auto rounded border border-[var(--pl-line-strong)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--pl-muted)]">
-            beta
-          </span>
         </Link>
 
         <nav className="space-y-1" aria-label="主导航">
@@ -57,29 +54,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="mt-auto space-y-2">
-          <Link
-            href="/terms"
-            aria-current={pathname.startsWith("/terms") ? "page" : undefined}
-            className={`flex h-9 items-center gap-3 rounded-lg px-2.5 text-[12px] transition-colors ${
-              pathname.startsWith("/terms")
-                ? "bg-white/70 text-[var(--pl-ink)]"
-                : "text-[var(--pl-muted)] hover:bg-white/45 hover:text-[var(--pl-ink)]"
-            }`}
-          >
-            <span className="w-5 text-center font-mono text-[11px] text-[var(--pl-faint)]">⚙</span>
-            翻译设置与词库
-          </Link>
-          <div className="rounded-xl border border-[var(--pl-line)] bg-white/35 p-3">
-          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--pl-muted)]">
-            <span className="size-1.5 rounded-full bg-[#6d9a73] shadow-[0_0_0_3px_rgba(109,154,115,.12)]" />
-            Local workspace
-          </div>
-          <p className="mt-2 text-[11px] leading-4 text-[var(--pl-faint)]">
-            数据保存在本机，并按工作区隔离。
-          </p>
-          </div>
-        </div>
+        <p className="mt-auto px-2 pb-1 text-[10px] leading-4 text-[var(--pl-faint)]">本地优先 · 工作区隔离</p>
       </aside>
 
       <div className="min-w-0">

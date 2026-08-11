@@ -144,6 +144,10 @@ CREATE TABLE IF NOT EXISTS research_runs (
     status TEXT NOT NULL DEFAULT 'PLANNED',
     artifact TEXT NOT NULL DEFAULT '',
     findings TEXT NOT NULL DEFAULT '[]',
+    structured_findings TEXT NOT NULL DEFAULT '[]',
+    reproduction_requirements TEXT NOT NULL DEFAULT '[]',
+    depth TEXT NOT NULL DEFAULT 'ANALYTIC',
+    intent TEXT NOT NULL DEFAULT 'GENERAL',
     notes TEXT NOT NULL DEFAULT '[]',
     created_at TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL DEFAULT ''
@@ -175,6 +179,12 @@ CREATE TABLE IF NOT EXISTS term_entries (
     confidence REAL NOT NULL DEFAULT 0.5,
     updated_at TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (workspace_id, scope, source)
+);
+CREATE TABLE IF NOT EXISTS installed_term_packs (
+    workspace_id TEXT NOT NULL,
+    pack_id TEXT NOT NULL,
+    installed_at TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (workspace_id, pack_id)
 );
 CREATE TABLE IF NOT EXISTS translation_memory (
     workspace_id TEXT NOT NULL,
@@ -285,6 +295,20 @@ class VNextRepository:
                 DROP TABLE translation_memory_legacy;
                 """
             )
+        run_columns = {
+            row["name"] for row in self._conn.execute("PRAGMA table_info(research_runs)")
+        }
+        run_additions = {
+            "structured_findings": "TEXT NOT NULL DEFAULT '[]'",
+            "reproduction_requirements": "TEXT NOT NULL DEFAULT '[]'",
+            "depth": "TEXT NOT NULL DEFAULT 'ANALYTIC'",
+            "intent": "TEXT NOT NULL DEFAULT 'GENERAL'",
+        }
+        for column, definition in run_additions.items():
+            if column not in run_columns:
+                self._conn.execute(
+                    f"ALTER TABLE research_runs ADD COLUMN {column} {definition}"
+                )
         self._conn.commit()
 
     # ------------------------------------------------------------------
@@ -700,8 +724,9 @@ class VNextRepository:
         self._conn.execute(
             """INSERT OR REPLACE INTO research_runs
                (run_id, workspace_id, project_id, question, tasks, status, artifact,
-                findings, notes, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                findings, structured_findings, reproduction_requirements, depth,
+                intent, notes, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 run.run_id,
                 run.workspace_id,
@@ -711,6 +736,10 @@ class VNextRepository:
                 run.status.value,
                 _dumps(run.artifact.model_dump(mode="json")) if run.artifact else "",
                 _dumps(run.findings),
+                _dumps([item.model_dump(mode="json") for item in run.structured_findings]),
+                _dumps([item.model_dump(mode="json") for item in run.reproduction_requirements]),
+                run.depth.value,
+                run.intent,
                 _dumps(run.notes),
                 run.created_at,
                 run.updated_at,
@@ -724,7 +753,12 @@ class VNextRepository:
         ).fetchone()
         if row is None:
             return None
-        from paperlens_core.agents.models import ArtifactProduced, TaskDefinition
+        from paperlens_core.agents.models import (
+            ArtifactProduced,
+            ReproductionRequirement,
+            ResearchFinding,
+            TaskDefinition,
+        )
 
         artifact_data = _loads(row["artifact"], None) if row["artifact"] else None
         return ResearchRun(
@@ -739,6 +773,18 @@ class VNextRepository:
             status=row["status"],
             artifact=ArtifactProduced(**artifact_data) if artifact_data else None,
             findings=_loads(row["findings"], []),
+            structured_findings=[
+                ResearchFinding(**item)
+                for item in _loads(row["structured_findings"], [])
+                if isinstance(item, dict)
+            ],
+            reproduction_requirements=[
+                ReproductionRequirement(**item)
+                for item in _loads(row["reproduction_requirements"], [])
+                if isinstance(item, dict)
+            ],
+            depth=row["depth"],
+            intent=row["intent"],
             notes=_loads(row["notes"], []),
             created_at=row["created_at"],
             updated_at=row["updated_at"],
@@ -865,6 +911,27 @@ class VNextRepository:
         self._conn.execute(
             "DELETE FROM term_entries WHERE workspace_id = ? AND scope = ? AND source = ?",
             (workspace_id, scope, source),
+        )
+        self._conn.commit()
+
+    def list_installed_term_packs(self, workspace_id: str) -> list[str]:
+        rows = self._conn.execute(
+            "SELECT pack_id FROM installed_term_packs WHERE workspace_id = ? ORDER BY installed_at",
+            (workspace_id,),
+        ).fetchall()
+        return [row["pack_id"] for row in rows]
+
+    def install_term_pack(self, workspace_id: str, pack_id: str, installed_at: str) -> None:
+        self._conn.execute(
+            "INSERT OR REPLACE INTO installed_term_packs (workspace_id, pack_id, installed_at) VALUES (?, ?, ?)",
+            (workspace_id, pack_id, installed_at),
+        )
+        self._conn.commit()
+
+    def uninstall_term_pack(self, workspace_id: str, pack_id: str) -> None:
+        self._conn.execute(
+            "DELETE FROM installed_term_packs WHERE workspace_id = ? AND pack_id = ?",
+            (workspace_id, pack_id),
         )
         self._conn.commit()
 

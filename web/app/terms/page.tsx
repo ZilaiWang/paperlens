@@ -1,108 +1,98 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { deleteTerm, listTermbase, upsertTerm, type TermEntry } from "@/lib/apiV2";
+import {
+  deleteTerm,
+  installTermPack,
+  listTermbase,
+  listTermPacks,
+  uninstallTermPack,
+  upsertTerm,
+  type TermEntry,
+  type TermPack,
+} from "@/lib/apiV2";
 
-const scopeLabel: Record<string, string> = {
-  SYSTEM: "系统", DOMAIN: "领域", PROJECT: "项目", PAPER: "论文", USER: "用户",
-};
-
-export default function TermsPage() {
+export default function TranslationSettingsPage() {
+  const [packs, setPacks] = useState<TermPack[]>([]);
   const [terms, setTerms] = useState<TermEntry[]>([]);
   const [source, setSource] = useState("");
   const [target, setTarget] = useState("");
-  const [locked, setLocked] = useState(false);
-  const [keepEnglish, setKeepEnglish] = useState(false);
-  const [query, setQuery] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
-  const refresh = useCallback(() => {
-    listTermbase().then(setTerms).catch((err) => setError(err instanceof Error ? err.message : "术语加载失败"));
+  const refresh = useCallback(async () => {
+    try {
+      const [packRows, termRows] = await Promise.all([listTermPacks(), listTermbase()]);
+      setPacks(packRows);
+      setTerms(termRows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "翻译设置加载失败");
+    }
   }, []);
-  useEffect(() => refresh(), [refresh]);
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase();
-    return needle ? terms.filter((term) => `${term.source} ${term.target}`.toLocaleLowerCase().includes(needle)) : terms;
-  }, [query, terms]);
+  useEffect(() => { void refresh(); }, [refresh]);
 
-  const addTerm = async () => {
-    if (busy || !source.trim() || (!target.trim() && !keepEnglish)) return;
-    setBusy(true);
+  const overrides = useMemo(
+    () => terms.filter((term) => !["SYSTEM", "DOMAIN"].includes(term.scope)),
+    [terms],
+  );
+
+  const togglePack = async (pack: TermPack) => {
+    setBusy(pack.pack_id);
     setError("");
     try {
-      await upsertTerm({ source: source.trim(), target: keepEnglish ? "" : target.trim(), scope: "PROJECT", locked, keep_english: keepEnglish });
-      setSource(""); setTarget(""); setLocked(false); setKeepEnglish(false);
-      refresh();
+      if (pack.installed) await uninstallTermPack(pack.pack_id);
+      else await installTermPack(pack.pack_id);
+      await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "添加术语失败");
-    } finally { setBusy(false); }
+      setError(err instanceof Error ? err.message : "术语包更新失败");
+    } finally { setBusy(""); }
   };
 
-  const removeTerm = async (term: TermEntry) => {
-    if (["SYSTEM", "DOMAIN"].includes(term.scope)) return;
-    setError("");
+  const saveOverride = async () => {
+    if (!source.trim() || !target.trim()) return;
+    setBusy("override");
     try {
-      await deleteTerm(term.scope, term.source);
-      setTerms((items) => items.filter((item) => !(item.scope === term.scope && item.source === term.source)));
+      await upsertTerm({ source: source.trim(), target: target.trim(), scope: "USER", locked: true });
+      setSource(""); setTarget("");
+      await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "删除术语失败");
-    }
+      setError(err instanceof Error ? err.message : "个人译法保存失败");
+    } finally { setBusy(""); }
   };
 
   return (
-    <main className="min-h-screen px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
-      <div className="mx-auto max-w-[1050px]">
-        <header className="mb-9 flex flex-wrap items-end justify-between gap-5">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[var(--pl-clay)]">Settings / Translation</p>
-            <h1 className="mt-2 text-3xl font-medium tracking-[-0.03em]">翻译设置与术语</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--pl-muted)]">这是阅读器的内部翻译能力。内置领域词表会自动参与翻译，你也可以在这里补充固定译法。</p>
-          </div>
-          <div className="flex gap-5 font-mono text-[9px] uppercase tracking-wide text-[var(--pl-faint)]">
-            <span><b className="mr-1 text-sm font-medium text-[var(--pl-ink)]">{terms.length}</b> total</span>
-            <span><b className="mr-1 text-sm font-medium text-[var(--pl-ink)]">{terms.filter((term) => term.locked).length}</b> locked</span>
-          </div>
+    <main className="min-h-screen px-5 py-9 sm:px-9">
+      <div className="mx-auto max-w-[900px]">
+        <Link href="/library" className="text-xs text-[var(--pl-muted)] hover:text-[var(--pl-clay)]">← 返回论文库</Link>
+        <header className="mt-7 border-b border-[var(--pl-line)] pb-6">
+          <h1 className="text-3xl font-semibold tracking-[-0.03em]">翻译设置</h1>
+          <p className="mt-2 text-sm leading-6 text-[var(--pl-muted)]">安装领域术语包后，译文会自动采用一致的专业表达。个人译法只覆盖你明确指定的词。</p>
         </header>
 
-        <div className="grid gap-8 lg:grid-cols-[330px_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-10 lg:self-start">
-            <div className="rounded-2xl border border-[var(--pl-line)] bg-white p-5 shadow-[0_10px_28px_rgba(44,39,31,.06)]">
-              <div className="mb-5 flex items-center justify-between"><h2 className="text-sm font-medium">添加自定义术语</h2><span className="font-mono text-[9px] text-[var(--pl-faint)]">WORKSPACE</span></div>
-              <label className="block text-[11px] font-medium text-[var(--pl-muted)]">原文<input value={source} onChange={(event) => setSource(event.target.value)} placeholder="backbone" className="mt-2 block w-full rounded-lg border border-[var(--pl-line)] bg-[#fbfaf7] px-3 py-2.5 text-sm outline-none focus:border-[var(--pl-clay)]" /></label>
-              <label className="mt-4 block text-[11px] font-medium text-[var(--pl-muted)]">目标译法<input value={target} disabled={keepEnglish} onChange={(event) => setTarget(event.target.value)} placeholder={keepEnglish ? "保持原文" : "骨干网络"} className="mt-2 block w-full rounded-lg border border-[var(--pl-line)] bg-[#fbfaf7] px-3 py-2.5 text-sm outline-none focus:border-[var(--pl-clay)] disabled:text-[var(--pl-faint)]" /></label>
-              <div className="mt-4 space-y-2 text-xs text-[var(--pl-muted)]">
-                <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={locked} onChange={(event) => setLocked(event.target.checked)} className="accent-[var(--pl-clay)]" />锁定译法</label>
-                <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={keepEnglish} onChange={(event) => setKeepEnglish(event.target.checked)} className="accent-[var(--pl-clay)]" />保持英文</label>
-              </div>
-              {error && <p className="mt-3 text-xs text-[#a23f32]">{error}</p>}
-              <button type="button" onClick={() => void addTerm()} disabled={busy || !source.trim() || (!target.trim() && !keepEnglish)} className="mt-5 h-10 w-full rounded-lg bg-[var(--pl-ink)] text-xs font-medium text-white hover:bg-black disabled:opacity-35">{busy ? "保存中…" : "保存术语 →"}</button>
-            </div>
-            <div className="mt-3 rounded-xl border border-[var(--pl-line)] p-4 text-[11px] leading-5 text-[var(--pl-faint)]">内部优先级：个人规则 → 当前论文 → 工作区 → 领域词表 → 系统词表。系统和领域词表只读，避免局部修改影响基础译法。</div>
-          </aside>
+        {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
 
-          <section>
-            <div className="mb-3 flex items-center gap-3">
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索原文或译法…" className="h-9 min-w-0 flex-1 rounded-lg border border-[var(--pl-line)] bg-white/70 px-3 text-xs outline-none focus:border-[var(--pl-clay)]" />
-              <span className="font-mono text-[9px] uppercase text-[var(--pl-faint)]">{filtered.length} entries</span>
-            </div>
-            <div className="overflow-hidden rounded-xl border border-[var(--pl-line)] bg-white/70">
-              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px_28px] gap-3 border-b border-[var(--pl-line)] bg-[#f1efe9] px-4 py-2.5 font-mono text-[9px] uppercase tracking-wide text-[var(--pl-faint)]"><span>Source</span><span>Target</span><span>Scope</span><span /></div>
-              {filtered.length === 0 ? <p className="px-5 py-12 text-center text-sm text-[var(--pl-faint)]">没有匹配的术语。</p> : filtered.map((term) => {
-                const editable = !["SYSTEM", "DOMAIN"].includes(term.scope);
-                return (
-                  <div key={`${term.scope}:${term.source}`} className="group grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px_28px] items-center gap-3 border-b border-[var(--pl-line)] px-4 py-3 last:border-0">
-                    <div className="truncate text-[13px] font-medium">{term.source}</div>
-                    <div className="flex min-w-0 items-center gap-2"><span className="truncate text-[13px] text-[var(--pl-muted)]">{term.target || term.source}</span>{term.locked && <span title="已锁定" className="font-mono text-[9px] text-[var(--pl-clay)]">LOCK</span>}</div>
-                    <span className="w-fit rounded bg-[#eeeae2] px-1.5 py-1 font-mono text-[8px] uppercase text-[var(--pl-muted)]">{scopeLabel[term.scope] ?? term.scope}</span>
-                    <button type="button" disabled={!editable} title={editable ? "删除术语" : "内置术语只读"} onClick={() => void removeTerm(term)} className="text-[var(--pl-faint)] opacity-0 transition hover:text-[#a23f32] disabled:cursor-default group-hover:opacity-100 disabled:opacity-0">×</button>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        </div>
+        <section className="mt-8">
+          <div className="mb-3 flex items-end justify-between"><div><h2 className="text-base font-medium">领域术语包</h2><p className="mt-1 text-xs text-[var(--pl-faint)]">按研究方向安装，需要时可以随时停用。</p></div><span className="text-xs text-[var(--pl-faint)]">已安装 {packs.filter((pack) => pack.installed).length}</span></div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {packs.map((pack) => (
+              <article key={pack.pack_id} className="rounded-xl border border-[var(--pl-line)] bg-white p-4">
+                <div className="flex items-start justify-between gap-4"><div><h3 className="text-sm font-medium">{pack.name}</h3><p className="mt-1 text-xs leading-5 text-[var(--pl-muted)]">{pack.description}</p></div><button type="button" disabled={busy === pack.pack_id} onClick={() => void togglePack(pack)} className={`shrink-0 rounded-lg px-3 py-1.5 text-xs ${pack.installed ? "border border-[var(--pl-line)] text-[var(--pl-muted)]" : "bg-[var(--pl-clay)] text-white"}`}>{busy === pack.pack_id ? "更新中…" : pack.installed ? "已安装" : "安装"}</button></div>
+                <p className="mt-3 text-[10px] text-[var(--pl-faint)]">{pack.term_count} 个术语 · v{pack.version} · {pack.license}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-10 border-t border-[var(--pl-line)] pt-8">
+          <h2 className="text-base font-medium">个人译法覆盖</h2>
+          <p className="mt-1 text-xs text-[var(--pl-faint)]">只在系统译法不符合你的习惯时添加，优先级高于术语包。</p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row"><input value={source} onChange={(event) => setSource(event.target.value)} placeholder="原文，例如 backbone" className="h-10 flex-1 rounded-lg border border-[var(--pl-line)] bg-white px-3 text-sm outline-none focus:border-[var(--pl-clay)]" /><input value={target} onChange={(event) => setTarget(event.target.value)} placeholder="你的译法" className="h-10 flex-1 rounded-lg border border-[var(--pl-line)] bg-white px-3 text-sm outline-none focus:border-[var(--pl-clay)]" /><button type="button" disabled={busy === "override" || !source.trim() || !target.trim()} onClick={() => void saveOverride()} className="h-10 rounded-lg bg-[var(--pl-ink)] px-4 text-xs text-white disabled:opacity-40">保存覆盖</button></div>
+          <div className="mt-4 divide-y divide-[var(--pl-line)] border-y border-[var(--pl-line)]">
+            {overrides.length === 0 ? <p className="py-6 text-center text-xs text-[var(--pl-faint)]">暂无个人覆盖</p> : overrides.map((term) => <div key={`${term.scope}:${term.source}`} className="flex items-center gap-3 py-3 text-sm"><span className="min-w-0 flex-1 truncate">{term.source}</span><span className="min-w-0 flex-1 truncate text-[var(--pl-muted)]">{term.target || term.source}</span><button type="button" onClick={async () => { await deleteTerm(term.scope, term.source); await refresh(); }} className="text-xs text-[var(--pl-faint)] hover:text-red-600">删除</button></div>)}
+          </div>
+        </section>
       </div>
     </main>
   );

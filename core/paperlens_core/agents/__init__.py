@@ -6,9 +6,13 @@ TaskRuntime.  Tools are registered capabilities (search, compare, profile);
 their inputs/outputs are data, not text soup.
 """
 
+from .adaptive import DepthRouter, RoutedQuestion
 from .executor import execute_run, run_dag
 from .models import (
+    AnalysisDepth,
     ArtifactProduced,
+    FindingKind,
+    ResearchFinding,
     ResearchRun,
     RunStatus,
     TaskDefinition,
@@ -16,7 +20,7 @@ from .models import (
     TaskResult,
     TaskStatus,
 )
-from .planner import TaskPlanner, create_run_plan
+from .planner import TaskPlanner, create_adaptive_run_plan, create_run_plan
 from .runtime import (
     ToolContext,
     ToolHandler,
@@ -30,6 +34,11 @@ __all__ = [
     "execute_run",
     "run_dag",
     "ArtifactProduced",
+    "AnalysisDepth",
+    "DepthRouter",
+    "RoutedQuestion",
+    "ResearchFinding",
+    "FindingKind",
     "ResearchRun",
     "RunStatus",
     "TaskDependency",
@@ -38,6 +47,7 @@ __all__ = [
     "TaskStatus",
     "TaskPlanner",
     "create_run_plan",
+    "create_adaptive_run_plan",
     "ToolContext",
     "ToolHandler",
     "ToolRegistry",
