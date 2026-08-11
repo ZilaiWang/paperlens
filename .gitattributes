@@ -1,0 +1,2 @@
+# Copied third-party browser bundles should not determine repository language stats.
+web/public/pdf.worker.mjs linguist-vendored
