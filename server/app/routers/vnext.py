@@ -568,7 +568,7 @@ def translate_v2(
     try:
         settings = Settings()
         model = OpenAICompatibleModel(settings)
-        model_ok = bool(settings.openai_api_key or settings.openai_base_url)
+        model_ok = settings.llm_configured
     except Exception:  # noqa: BLE001 - offline/keys missing is a supported mode
         model = None
         model_ok = False
@@ -585,12 +585,23 @@ def translate_v2(
             "note": "未配置 LLM API Key——未执行模型翻译阶段",
         }
 
-    result = engine.translate_paragraphs(
-        paragraphs=payload.paragraphs,
-        section_title=payload.section_title,
-        paper_title=payload.paper_title,
-        thread_id=f"trans-v2-{workspace_id[:8]}",
-    )
+    try:
+        result = engine.translate_paragraphs(
+            paragraphs=payload.paragraphs,
+            section_title=payload.section_title,
+            paper_title=payload.paper_title,
+            thread_id=f"trans-v2-{workspace_id[:8]}",
+        )
+    except Exception as exc:  # noqa: BLE001 - model outage degrades to source text
+        logger.warning("translation v2 model unavailable: %s", exc)
+        return {
+            "workspace_id": workspace_id,
+            "model_available": False,
+            "translations": payload.paragraphs,
+            "issues": [[] for _ in payload.paragraphs],
+            "stages_run": ["CONTEXT", "TERMS", "PROTECT"],
+            "note": "LLM 暂时不可用——已保留原文，可稍后重试",
+        }
     return {
         "workspace_id": workspace_id,
         "model_available": True,
