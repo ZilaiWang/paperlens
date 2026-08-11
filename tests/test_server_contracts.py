@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from paperlens_core.comparison import ComparisonCell
+from paperlens_core.comparison import ComparisonCell, CrossPaperAnswer
 from paperlens_core.llm import StaticJSONModel
 from paperlens_core.models import CoverageStatus
 from pydantic import ValidationError
@@ -11,6 +11,11 @@ from pydantic import ValidationError
 from server.app.main import app
 from server.app.schemas import ComparisonRequest
 from server.app.services.comparisons import ARTIFACT_FIELD_MAP, translate_comparison_cells
+
+
+def test_cross_paper_answer_rejects_empty_claim() -> None:
+    with pytest.raises(ValidationError):
+        CrossPaperAnswer(claim="", comparability_status="NOT_COMPARABLE")
 
 
 def test_comparison_endpoint_declares_json_request_body() -> None:

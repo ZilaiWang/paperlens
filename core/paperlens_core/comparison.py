@@ -444,7 +444,7 @@ def translate_cell_values_zh(
 class CrossPaperAnswer(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    claim: str = Field(max_length=800)
+    claim: str = Field(min_length=1, max_length=800)
     paper_evidence: dict[str, list[str]] = Field(default_factory=dict)  # paper_id -> quotes
     comparability_status: Literal["COMPARABLE", "PARTIAL", "NOT_COMPARABLE"] = "PARTIAL"
     caveat: str = ""

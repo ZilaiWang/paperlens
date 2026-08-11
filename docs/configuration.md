@@ -36,6 +36,8 @@ may parse documents correctly but fail structured analysis schemas.
 | `PAPERLENS_USER_QUOTA` | `300` | Maximum papers associated with one `X-User-Id`. This is a quota, not authentication. |
 | `CONTACT_EMAIL` | empty | Contact identity sent to scholarly services where supported. |
 | `PAPERLENS_ARXIV_PROXY` | empty | Optional HTTP proxy for arXiv HTML, PDF, API, and asset requests. |
+| `PAPERLENS_CORS_ORIGINS` | local frontend origins | Comma-separated browser origins allowed to send credentialed requests. Wildcards are not accepted. |
+| `PAPERLENS_SECURE_COOKIES` | `false` | Set `true` behind HTTPS so anonymous workspace cookies use the `Secure` attribute. |
 
 The current server is single-process. Running multiple Uvicorn workers against
 the same SQLite database and in-memory job/event state is unsupported.
@@ -63,6 +65,8 @@ PAPERLENS_TOP_K=8
 PAPERLENS_PDF_PARSER=hybrid
 PAPERLENS_USER_QUOTA=300
 PAPERLENS_MAX_SYNC_FIGURES=10
+PAPERLENS_CORS_ORIGINS=http://127.0.0.1:3000,http://localhost:3000
+PAPERLENS_SECURE_COOKIES=false
 ```
 
 Never place real credentials in `.env.example`, issue reports, screenshots, or

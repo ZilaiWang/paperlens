@@ -179,10 +179,11 @@ export function Workbench({ paperId }: { paperId: string }) {
   // V4.8：参考文献格式过滤（全部 / 有问题的）
   const [refFilter, setRefFilter] = useState<"all" | "issues">("all");
   const [railOpen, setRailOpen] = useState(true);
-  const [agentOpen, setAgentOpen] = useState(true);
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [readerSettingsOpen, setReaderSettingsOpen] = useState(false);
   // 左右栏宽度（V3.18）：拖拽手柄调节，边界钳制
-  const [railWidth, setRailWidth] = useState(240);
-  const [agentWidth, setAgentWidth] = useState(420);
+  const [railWidth, setRailWidth] = useState(276);
+  const [agentWidth, setAgentWidth] = useState(392);
   // V4.3-1 上下文检索：滚动跟踪当前章节（供 Agent 限定检索范围）
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
 
@@ -321,9 +322,11 @@ export function Workbench({ paperId }: { paperId: string }) {
       .pageQuality(paperId)
       .then(setPageQuality)
       .catch(() => setPageQuality([]));
-    api
-      .meta(paperId)
-      .then(setMeta)
+    Promise.all([api.meta(paperId), api.listPapers()])
+      .then(([paperMeta, paperRows]) => {
+        const row = paperRows.find((item) => item.paper_id === paperId);
+        setMeta({ ...paperMeta, title: paperMeta.title || row?.title || "" });
+      })
       .catch(() => setMeta(null));
   }, [paperId]);
 
@@ -786,76 +789,94 @@ export function Workbench({ paperId }: { paperId: string }) {
   }, [paperId, resolveAllState?.state]);
 
   return (
-    <div className="h-screen flex flex-col bg-[#f7f7f5]">
-      {/* top bar */}
-      <header className="h-14 shrink-0 flex items-center justify-between px-4 border-b border-[#e6e7ea] bg-white">
-        <div className="flex items-center gap-4 min-w-0">
-          <Link href="/" className="text-sm font-semibold whitespace-nowrap">
-            ← 论文库
-          </Link>
-          <span className="text-sm font-medium truncate">{paperId.slice(0, 12)}</span>
+    <div className="flex h-screen flex-col bg-[var(--pl-canvas)] text-[var(--pl-ink)]">
+      <header className="relative z-30 flex h-16 shrink-0 items-center gap-4 border-b border-[var(--pl-line)] bg-[rgba(247,246,242,.94)] px-3 backdrop-blur md:px-4">
+        <Link href="/library" className="flex shrink-0 items-center gap-2 rounded-lg p-1.5 transition hover:bg-white/70" title="返回论文库">
+          <span className="grid size-7 place-items-center rounded-[9px] bg-[var(--pl-clay)] text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(50,30,20,.16)]">P</span>
+          <span className="hidden text-xs font-medium text-[var(--pl-muted)] sm:inline">论文库</span>
+        </Link>
+        <div className="h-7 w-px shrink-0 bg-[var(--pl-line)]" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-medium tracking-[-0.01em]">
+            {meta?.title || "正在载入论文…"}
+          </div>
+          <div className="mt-0.5 truncate font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--pl-faint)]">
+            {meta?.authors || `Paper ${paperId.slice(0, 12)}`}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             onClick={() => setRailOpen((value) => !value)}
-            className="px-3 py-1.5 text-sm text-[#6b7280] hover:text-[#2f4b7c] rounded-lg hover:bg-[#f0f2f5]"
+            aria-pressed={railOpen}
+            className={`hidden h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition sm:flex ${railOpen ? "bg-white text-[var(--pl-ink)] shadow-[0_1px_2px_rgba(38,34,28,.06)]" : "text-[var(--pl-muted)] hover:bg-white/60"}`}
           >
-            目录
+            <span className="font-mono">☷</span> 导航
           </button>
-          {/* V4.7b：单篇 → 多篇比较入口（带当前论文预选） */}
-          <Link
-            href={`/compare?papers=${paperId}`}
-            className="px-3 py-1.5 text-sm text-[#2f4b7c] hover:bg-[#f0f4f8] rounded-lg"
-            title="把当前论文加入多篇比较"
-          >
-            加入比较
-          </Link>
-          <div className="flex rounded-lg border border-[#e6e7ea] overflow-hidden">
+          <div className="flex overflow-hidden rounded-lg border border-[var(--pl-line)] bg-white/55 p-0.5">
             <button
               onClick={() => setMode("immersive")}
-              className={`px-3 py-1.5 text-sm ${
-                mode === "immersive" ? "bg-[#2f4b7c] text-white" : "text-[#6b7280] hover:text-[#2f4b7c]"
+              className={`rounded-md px-2.5 py-1.5 text-[11px] transition ${
+                mode === "immersive" ? "bg-[var(--pl-ink)] text-white shadow-sm" : "text-[var(--pl-muted)] hover:text-[var(--pl-ink)]"
               }`}
             >
-              沉浸
+              阅读
             </button>
             <button
               onClick={() => setMode("pdf")}
-              className={`px-3 py-1.5 text-sm ${
-                mode === "pdf" ? "bg-[#2f4b7c] text-white" : "text-[#6b7280] hover:text-[#2f4b7c]"
+              className={`rounded-md px-2.5 py-1.5 text-[11px] transition ${
+                mode === "pdf" ? "bg-[var(--pl-ink)] text-white shadow-sm" : "text-[var(--pl-muted)] hover:text-[var(--pl-ink)]"
               }`}
             >
-              原版
+              PDF
             </button>
           </div>
-          {mode === "immersive" && (
-            <div className="flex rounded-lg border border-[#e6e7ea] overflow-hidden">
-              {(
-                [
-                  ["original", "原文"],
-                  ["bilingual", "双语"],
-                  ["chinese", "中文"],
-                ] as [DisplayMode, string][]
-              ).map(([key, label]) => (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setReaderSettingsOpen((open) => !open)}
+              aria-expanded={readerSettingsOpen}
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-[var(--pl-line)] bg-white/60 px-2.5 text-[11px] text-[var(--pl-muted)] transition hover:bg-white hover:text-[var(--pl-ink)]"
+            >
+              <span className="font-mono text-[10px]">译</span>
+              <span className="hidden md:inline">{displayMode === "original" ? "原文" : displayMode === "chinese" ? "中文" : "双语"}</span>
+              <span className="text-[9px]">⌄</span>
+            </button>
+            {readerSettingsOpen && (
+              <div className="absolute right-0 top-11 z-50 w-72 rounded-xl border border-[var(--pl-line)] bg-white p-3 shadow-[0_18px_45px_rgba(44,39,31,.16)]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium">阅读与翻译</p>
+                    <p className="mt-0.5 text-[10px] text-[var(--pl-faint)]">仅影响当前论文的显示</p>
+                  </div>
+                  <button onClick={() => setReaderSettingsOpen(false)} className="text-[var(--pl-faint)] hover:text-[var(--pl-ink)]" aria-label="关闭设置">×</button>
+                </div>
+                <div className="mt-3 grid grid-cols-3 rounded-lg bg-[#f1eee8] p-0.5">
+                  {([ ["original", "原文"], ["bilingual", "双语"], ["chinese", "中文"] ] as [DisplayMode, string][]).map(([key, label]) => (
+                    <button key={key} onClick={() => setDisplayMode(key)} className={`rounded-md py-1.5 text-[11px] transition ${displayMode === key ? "bg-white font-medium text-[var(--pl-clay)] shadow-sm" : "text-[var(--pl-muted)]"}`}>{label}</button>
+                  ))}
+                </div>
                 <button
-                  key={key}
-                  onClick={() => setDisplayMode(key)}
-                  className={`px-2.5 py-1.5 text-xs ${
-                    displayMode === key
-                      ? "bg-[#2f4b7c] text-white"
-                      : "text-[#6b7280] hover:text-[#2f4b7c]"
-                  }`}
+                  type="button"
+                  onClick={() => void translateAll(pages.map(([page]) => page))}
+                  disabled={autoTranslate || pages.length === 0}
+                  className="mt-3 flex w-full items-center justify-between rounded-lg border border-[var(--pl-line)] px-3 py-2 text-left text-[11px] text-[var(--pl-muted)] transition hover:border-[var(--pl-line-strong)] hover:text-[var(--pl-ink)] disabled:opacity-45"
                 >
-                  {label}
+                  <span>{autoTranslate ? "正在翻译全文…" : "生成全文译文"}</span><span>→</span>
                 </button>
-              ))}
-            </div>
-          )}
+                <div className="my-3 border-t border-[var(--pl-line)]" />
+                <Link href="/terms" className="flex items-start justify-between rounded-lg px-1 py-1 text-xs hover:text-[var(--pl-clay)]">
+                  <span><b className="block font-medium">术语与固定译法</b><small className="mt-1 block font-normal text-[var(--pl-faint)]">管理内置领域词表与个人规则</small></span><span>↗</span>
+                </Link>
+              </div>
+            )}
+          </div>
+          <Link href={`/compare?papers=${paperId}`} className="hidden h-9 items-center rounded-lg px-2.5 text-[11px] text-[var(--pl-muted)] transition hover:bg-white/60 hover:text-[var(--pl-ink)] lg:flex" title="从当前论文发起多篇对比">⇄ 对比</Link>
           <button
             onClick={() => setAgentOpen((value) => !value)}
-            className="px-3 py-1.5 text-sm text-[#6b7280] hover:text-[#2f4b7c] rounded-lg hover:bg-[#f0f2f5]"
+            aria-pressed={agentOpen}
+            className={`flex h-9 items-center gap-1.5 rounded-lg px-3 text-[11px] font-medium transition ${agentOpen ? "bg-[var(--pl-clay)] text-white" : "bg-[var(--pl-ink)] text-white hover:bg-black"}`}
           >
-            Agent
+            <span>✦</span><span className="hidden sm:inline">问论文</span>
           </button>
         </div>
       </header>
@@ -908,42 +929,45 @@ export function Workbench({ paperId }: { paperId: string }) {
         {railOpen && (
           <aside
             style={{ width: railWidth }}
-            className="shrink-0 border-r border-[#e6e7ea] bg-white flex flex-col min-h-0"
+            className="flex min-h-0 shrink-0 flex-col border-r border-[var(--pl-line)] bg-[var(--pl-sidebar)]"
           >
-            <nav className="flex flex-wrap border-b border-[#e6e7ea] text-xs">
+            <div className="px-4 pb-2 pt-4">
+              <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--pl-faint)]">论文内容</p>
+            </div>
+            <nav className="grid grid-cols-5 gap-0.5 border-b border-[var(--pl-line)] px-2 pb-2 text-[10px]">
               {(
                 [
                   ["toc", "目录"],
-                  ["analytics", "分析"],
+                  ["analytics", "洞察"],
                   ["figures", "图"],
                   ["tables", "表"],
-                  ["references", "参考文献"],
+                  ["references", "引用"],
                 ] as [RailTab, string][]
               ).map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setRailTab(key)}
-                  className={`px-2.5 py-2.5 border-b-2 whitespace-nowrap ${
+                  className={`rounded-md px-1 py-2 whitespace-nowrap transition ${
                     railTab === key
-                      ? "border-[#2f4b7c] text-[#2f4b7c] font-medium"
-                      : "border-transparent text-[#6b7280] hover:text-[#202124]"
+                      ? "bg-white font-medium text-[var(--pl-clay)] shadow-[0_1px_2px_rgba(38,34,28,.06)]"
+                      : "text-[var(--pl-muted)] hover:bg-white/45 hover:text-[var(--pl-ink)]"
                   }`}
                 >
                   {label}
                 </button>
               ))}
             </nav>
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex-1 overflow-y-auto p-2.5">
               {railTab === "toc" &&
                 sections.map((section) => (
                   <button
                     key={section.section_id}
                     onClick={() => scrollToSection(section)}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-sm hover:bg-[#f0f2f5] text-[#3d4451] flex gap-2"
+                    className={`flex w-full gap-2 rounded-lg px-2.5 py-2 text-left text-[12px] leading-4 transition ${activeSectionId === section.section_id ? "bg-white font-medium text-[var(--pl-ink)] shadow-[0_1px_2px_rgba(38,34,28,.05)]" : "text-[var(--pl-muted)] hover:bg-white/55 hover:text-[var(--pl-ink)]"}`}
                     style={{ paddingLeft: `${0.75 + (section.level - 1) * 1}rem` }}
                   >
                     {hasRealPageNumbers && (
-                      <span className="text-[#9aa0a6] shrink-0">p{section.start_page}</span>
+                      <span className="shrink-0 font-mono text-[9px] text-[var(--pl-faint)]">p{section.start_page}</span>
                     )}
                     <span className="truncate">
                       {section.title}
@@ -1141,32 +1165,34 @@ export function Workbench({ paperId }: { paperId: string }) {
             className="group relative z-10 -mx-3.5 flex w-7 shrink-0 cursor-col-resize touch-none items-center justify-center"
             title="拖动调节目录栏宽度"
           >
-            <div className="w-[3px] self-stretch rounded-full bg-transparent transition-colors group-hover:bg-[#2f4b7c]" />
+            <div className="w-[3px] self-stretch rounded-full bg-transparent transition-colors group-hover:bg-[var(--pl-clay)]" />
           </div>
         )}
 
         {/* center reader */}
-        <main className="flex-1 min-w-0 overflow-y-auto bg-[#f7f7f5]" data-reader-scroll>
+        <main className="min-w-0 flex-1 overflow-y-auto bg-[var(--pl-canvas)]" data-reader-scroll>
           {mode === "immersive" ? (
-            <div className="max-w-[860px] mx-auto px-10 py-10">
-              {/* arXiv 风格论文头（V3.6）：标题居中、作者行、摘要块 */}
+            <article className="mx-auto my-5 max-w-[900px] border border-[var(--pl-line)] bg-white px-7 py-10 shadow-[0_18px_55px_rgba(45,39,31,.06)] sm:my-8 sm:rounded-[18px] sm:px-12 lg:px-16 lg:py-14">
               {meta && (meta.title || meta.authors || meta.abstract) && (
-                <header className="mb-10 pb-8 border-b border-[#e6e7ea] text-center">
+                <header className="mb-12 border-b border-[var(--pl-line)] pb-10">
+                  <div className="mb-5 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--pl-clay)]">
+                    <span className="h-px w-5 bg-[var(--pl-clay)]" /> Paper
+                  </div>
                   {meta.title && (
-                    <h1 className="paper-serif text-[28px] leading-snug font-semibold text-[#202124]">
+                    <h1 className="paper-serif max-w-[760px] text-[30px] font-semibold leading-[1.2] tracking-[-0.025em] text-[var(--pl-ink)] sm:text-[38px]">
                       {meta.title}
                     </h1>
                   )}
                   {meta.authors && (
-                    <p className="mt-4 text-[15px] text-[#3d4451]">{meta.authors}</p>
+                    <p className="mt-4 text-[13px] leading-6 text-[var(--pl-muted)]">{meta.authors}</p>
                   )}
                   {meta.abstract && (
-                    <div className="mt-6 text-left bg-white rounded-xl border border-[#e6e7ea] px-6 py-5">
-                      <div className="text-xs font-semibold text-[#9aa0a6] uppercase tracking-wide mb-2">
+                    <div className="mt-8 border-l-2 border-[var(--pl-clay)] bg-[#faf8f4] py-5 pl-5 pr-5 text-left sm:pl-6">
+                      <div className="mb-3 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--pl-faint)]">
                         Abstract
                       </div>
                       {displayMode !== "chinese" && (
-                        <p className="paper-serif text-[15px] leading-[1.85] text-[#202124]">
+                        <p className="paper-serif text-[15px] leading-[1.8] text-[var(--pl-ink)]">
                           {meta.abstract}
                         </p>
                       )}
@@ -1185,17 +1211,17 @@ export function Workbench({ paperId }: { paperId: string }) {
               {pages.map(([page, pageBlocks]) => (
                 <section
                   key={page}
-                  className="page-section mb-12"
+                  className="page-section mb-14"
                   data-page={page}
                   style={{ contentVisibility: "auto", containIntrinsicSize: "auto 600px" }}
                 >
-                  <div className="flex items-center justify-between text-xs text-[#9aa0a6] mb-4 border-b border-[#e6e7ea] pb-2">
-                    <span>PDF 第 {page} 页</span>
+                  <div className="mb-6 flex items-center justify-between border-b border-[var(--pl-line)] pb-2 font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--pl-faint)]">
+                    <span>PDF · PAGE {page}</span>
                     {displayMode !== "original" && (
                       <button
                         onClick={() => void translatePages([page], [page])}
                         disabled={translatingPage !== null}
-                        className="text-[#2f4b7c] hover:underline disabled:opacity-50"
+                        className="text-[var(--pl-clay)] hover:underline disabled:opacity-50"
                       >
                         {translatingPage ?? "翻译本页"}
                       </button>
@@ -1224,8 +1250,8 @@ export function Workbench({ paperId }: { paperId: string }) {
                         <h2
                           key={block.block_id}
                           id={`sec-${heading.section_id}`}
-                          className={`paper-serif font-semibold mt-10 mb-4 ${
-                            heading.level === 1 ? "text-2xl" : "text-xl"
+                          className={`paper-serif mb-5 mt-12 scroll-mt-24 font-semibold tracking-[-0.02em] text-[var(--pl-ink)] ${
+                            heading.level === 1 ? "text-[26px]" : "text-[21px]"
                           }`}
                         >
                           {block.text}
@@ -1365,7 +1391,7 @@ export function Workbench({ paperId }: { paperId: string }) {
                           )}
                         {displayMode !== "chinese" && (
                           <p
-                            className="paper-serif text-[16px] leading-[1.85] text-[#202124] mb-1.5 select-text"
+                            className="paper-serif mb-2 select-text text-[16px] leading-[1.9] text-[var(--pl-ink)]"
                             data-block={block.block_id}
                           >
                             {renderParagraph(block.text, block.block_id)}
@@ -1401,7 +1427,7 @@ export function Workbench({ paperId }: { paperId: string }) {
                   })}
                 </section>
               ))}
-            </div>
+            </article>
           ) : (
             <PdfViewer
               pdfUrl={pdfUrlMemo}
@@ -1419,7 +1445,7 @@ export function Workbench({ paperId }: { paperId: string }) {
               className="group relative z-10 -mx-3.5 flex w-7 shrink-0 cursor-col-resize touch-none items-center justify-center"
               title="拖动调节 Agent 面板宽度"
             >
-              <div className="w-[3px] self-stretch rounded-full bg-transparent transition-colors group-hover:bg-[#2f4b7c]" />
+              <div className="w-[3px] self-stretch rounded-full bg-transparent transition-colors group-hover:bg-[var(--pl-clay)]" />
             </div>
             <AgentPanel
               paperId={paperId}

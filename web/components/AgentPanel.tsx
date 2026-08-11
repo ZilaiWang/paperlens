@@ -439,10 +439,13 @@ export function AgentPanel({
   return (
     <aside
       style={{ width: width ?? 380 }}
-      className="shrink-0 border-l border-[#e6e7ea] bg-white flex flex-col min-h-0"
+      className="flex min-h-0 shrink-0 flex-col border-l border-[var(--pl-line)] bg-[#fbfaf7]"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#e6e7ea]">
-        <span className="text-sm font-medium">论文 Agent</span>
+      <div className="flex items-center justify-between border-b border-[var(--pl-line)] px-4 py-3.5">
+        <div>
+          <span className="flex items-center gap-1.5 text-[13px] font-medium"><span className="text-[var(--pl-clay)]">✦</span> 问论文</span>
+          <p className="mt-0.5 text-[9px] text-[var(--pl-faint)]">回答会附带可定位的原文证据</p>
+        </div>
         <div className="flex items-center gap-1">
           {/* V4.6-1 会话菜单（§3.4）：恢复/切换/新建/重命名/删除 */}
           <div className="relative">
@@ -451,31 +454,31 @@ export function AgentPanel({
                 void loadSessions();
                 setSessionMenuOpen((open) => !open);
               }}
-              className="text-xs text-[#9aa0a6] hover:text-[#2f4b7c]"
+              className="text-[10px] text-[var(--pl-faint)] hover:text-[var(--pl-clay)]"
               title="会话管理"
             >
               {sessionTitle || "新会话"} ▾
             </button>
             {sessionMenuOpen && (
-              <div className="absolute right-0 top-7 z-20 w-56 rounded-xl border border-[#e6e7ea] bg-white shadow-lg p-1.5">
+              <div className="absolute right-0 top-7 z-20 w-56 rounded-xl border border-[var(--pl-line)] bg-white p-1.5 shadow-lg">
                 <button
                   onClick={() => void createNewSession()}
-                  className="w-full rounded-lg px-2.5 py-1.5 text-left text-xs text-[#2f4b7c] hover:bg-[#f0f4f8]"
+                  className="w-full rounded-lg px-2.5 py-1.5 text-left text-xs text-[var(--pl-clay)] hover:bg-[#f7f2ed]"
                 >
                   ＋ 新会话
                 </button>
-                <div className="my-1 border-t border-[#e6e7ea]" />
+                <div className="my-1 border-t border-[var(--pl-line)]" />
                 {sessions.map((session) => (
                   <div
                     key={session.session_id}
-                    className="group flex items-center gap-1 rounded-lg px-2.5 py-1.5 hover:bg-[#f0f4f8]"
+                    className="group flex items-center gap-1 rounded-lg px-2.5 py-1.5 hover:bg-[#f7f2ed]"
                   >
                     <button
                       onClick={() => void switchSession(session.session_id)}
                       className={`flex-1 truncate text-left text-xs ${
                         sessionRef.current === session.session_id
-                          ? "font-medium text-[#2f4b7c]"
-                          : "text-[#3d4451]"
+                          ? "font-medium text-[var(--pl-clay)]"
+                          : "text-[var(--pl-muted)]"
                       }`}
                       title={session.title || "未命名会话"}
                     >
@@ -500,7 +503,7 @@ export function AgentPanel({
               </div>
             )}
           </div>
-          <button onClick={onClose} className="text-[#9aa0a6] hover:text-[#202124] text-sm">
+          <button onClick={onClose} className="text-sm text-[var(--pl-faint)] hover:text-[var(--pl-ink)]">
             ✕
           </button>
         </div>
@@ -509,16 +512,16 @@ export function AgentPanel({
       {
         <>
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-            <p className="text-xs text-[#9aa0a6]">
-              上下文：整篇论文 · {blocks.length} 个段落块 · 回答中的每条事实都绑定证据
+            <p className="rounded-lg border border-[var(--pl-line)] bg-white/70 px-3 py-2 text-[10px] leading-4 text-[var(--pl-faint)]">
+              当前阅读上下文 · {blocks.length} 个段落块 · 每条事实绑定原文证据
             </p>
             {messages.map((message, index) => (
               <div key={index} className={message.role === "user" ? "text-right" : "text-left"}>
                 <div
                   className={`inline-block max-w-full text-left text-sm rounded-xl px-3.5 py-2.5 pl-fade ${
                     message.role === "user"
-                      ? "bg-[#2f4b7c] text-white"
-                      : "bg-[#f0f2f5] text-[#202124]"
+                      ? "bg-[var(--pl-ink)] text-white"
+                      : "border border-[var(--pl-line)] bg-white text-[var(--pl-ink)]"
                   }`}
                 >
                   {message.kind === "quality" && message.qualityData ? (
@@ -593,7 +596,7 @@ export function AgentPanel({
           </div>
           {/* 预设气泡（2026-08-05）：核心思路 / 结果解读 / 局限与疑点 /
               论文评估 平级一行，单层排列 */}
-          <div className="border-t border-[#e6e7ea] px-3 pt-2.5 pb-1">
+          <div className="border-t border-[var(--pl-line)] px-3 pb-1 pt-2.5">
             <div className="flex flex-wrap gap-1.5">
               {(
                 [
@@ -609,22 +612,22 @@ export function AgentPanel({
                     kind === "quality" ? void runQuality() : void runInsight(prompt)
                   }
                   disabled={kind === "quality" ? qualityBusy : busy}
-                  className="rounded-full border border-[#dbe3ee] px-3 py-1.5 text-xs text-[#2f4b7c] hover:bg-[#f0f4f8] disabled:opacity-50 transition-colors"
+                  className="rounded-full border border-[var(--pl-line-strong)] bg-white/70 px-3 py-1.5 text-xs text-[var(--pl-muted)] transition-colors hover:border-[var(--pl-clay)] hover:text-[var(--pl-clay)] disabled:opacity-50"
                 >
                   {kind === "quality" && qualityBusy ? "评估中…" : label}
                 </button>
               ))}
             </div>
           </div>
-          <div className="border-t border-[#e6e7ea] p-3">
+          <div className="border-t border-[var(--pl-line)] bg-white/45 p-3">
             {/* V4.3-1 检索范围分段开关（2026-08-05）：整篇 / 仅当前滚动章节，
                 选中态白底凸起；开启后提问才带 contextBlockIds */}
-            <div className="mb-2 flex rounded-lg bg-[#f0f2f5] p-0.5 text-[11px]">
+            <div className="mb-2 flex rounded-lg bg-[#ece9e2] p-0.5 text-[11px]">
               <button
                 onClick={() => setContextFollow(false)}
                 className={`flex-1 rounded-md py-1 transition-colors ${
                   !contextFollow
-                    ? "bg-white shadow-sm font-medium text-[#2f4b7c]"
+                    ? "bg-white font-medium text-[var(--pl-clay)] shadow-sm"
                     : "text-[#9aa0a6] hover:text-[#6b7280]"
                 }`}
               >
@@ -634,7 +637,7 @@ export function AgentPanel({
                 onClick={() => setContextFollow(true)}
                 className={`flex-1 rounded-md py-1 transition-colors ${
                   contextFollow
-                    ? "bg-white shadow-sm font-medium text-[#2f4b7c]"
+                    ? "bg-white font-medium text-[var(--pl-clay)] shadow-sm"
                     : "text-[#9aa0a6] hover:text-[#6b7280]"
                 }`}
               >
@@ -658,12 +661,12 @@ export function AgentPanel({
                     ? `例如：${exampleQuestion}`
                     : "输入你的问题…"
                 }
-                className="flex-1 px-3.5 py-2.5 rounded-lg border border-[#e6e7ea] text-sm focus:outline-none focus:border-[#2f4b7c]"
+                className="flex-1 rounded-lg border border-[var(--pl-line)] bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[var(--pl-clay)]"
               />
               <button
                 onClick={() => void send()}
                 disabled={busy || !input.trim()}
-                className="px-4 py-2.5 rounded-lg bg-[#2f4b7c] text-white text-sm hover:bg-[#263d64] disabled:opacity-40"
+                className="rounded-lg bg-[var(--pl-clay)] px-4 py-2.5 text-sm text-white hover:bg-[var(--pl-clay-dark)] disabled:opacity-40"
               >
                 发送
               </button>

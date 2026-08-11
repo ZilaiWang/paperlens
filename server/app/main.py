@@ -53,11 +53,20 @@ app = FastAPI(title="PaperLens", version=__version__)
 # 请求会叠加打 API——进程级信号量把全局翻译并发钳制在 4 批
 _TRANSLATE_SEMAPHORE = threading.Semaphore(4)
 
-# Dev CORS: the Next.js web app is served from a different origin than the API.
-# Cloud milestone narrows this to the deployed web origin.
+# The browser workspace session is an HttpOnly cookie, so credentialed CORS
+# must use explicit origins rather than a wildcard.
+cors_origins = [
+    item.strip()
+    for item in os.environ.get(
+        "PAPERLENS_CORS_ORIGINS",
+        "http://127.0.0.1:3000,http://localhost:3000",
+    ).split(",")
+    if item.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -77,6 +86,18 @@ if not os.environ.get("PAPERLENS_ARXIV_PROXY"):
 
 repository = Repository(os.path.join(DATA_DIR, "paperlens.db"))
 executor = JobExecutor(repository, UPLOADS_DIR)
+
+# vNext workspace-scoped storage + services (改进方案2 Phase A)
+from .repositories import VNextRepository  # noqa: E402
+from .services.research import ResearchService  # noqa: E402
+
+vnext_repository = VNextRepository(os.path.join(DATA_DIR, "paperlens.db"))
+research_service = ResearchService(repository, vnext_repository)
+
+# vNext routers (workspace / projects / comparison sets / runs / termbase / memory)
+from .routers import vnext_router  # noqa: E402
+
+app.include_router(vnext_router)
 
 MAX_UPLOAD_MB = int(os.environ.get("PAPERLENS_MAX_PDF_MB", "80"))
 # 每用户默认论文配额（V3.6）：guest 与任何 X-User-Id 用户共用同一上限

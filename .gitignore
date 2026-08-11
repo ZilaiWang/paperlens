@@ -10,6 +10,7 @@ __pycache__/
 
 # data & uploads (server-local)
 .paperlens/
+.obsidian/
 data/
 *.db
 *.db-shm
@@ -30,3 +31,5 @@ tsconfig.tsbuildinfo
 coverage/
 *.egg-info/
 测试结果.txt
+改进方案1.md
+改进方案2.md

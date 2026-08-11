@@ -11,10 +11,43 @@ inspect citations, and compare papers without losing the path back to the source
 [Contributing](CONTRIBUTING.md) · [Roadmap](docs/roadmap.md)
 
 [![CI](https://github.com/ZilaiWang/paperlens/actions/workflows/ci.yml/badge.svg)](https://github.com/ZilaiWang/paperlens/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/badge/release-v1.2.0-b95738.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)](core/pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 </div>
+
+## Product tour
+
+### Read the paper first
+
+![PaperLens bilingual single-paper reader](docs/images/reader.jpg)
+
+The single-paper reader is the product center. It reconstructs the document as
+a readable paper, keeps the original PDF one click away, and places the outline,
+figures, tables, references, analysis, translation, and evidence Q&A around the
+current reading context. The assistant stays closed by default so the paper owns
+the screen.
+
+### Move from a library into focused work
+
+| Paper library | Translation controls |
+| --- | --- |
+| ![PaperLens paper library](docs/images/library.jpg) | ![PaperLens translation settings](docs/images/translation-settings.jpg) |
+
+The library is for opening and selecting papers—not creating a separate project
+model. Select two or three papers to enter comparison mode. Terminology and
+fixed translations live under reader settings, where they support bilingual
+reading without competing with it in the main navigation.
+
+### Compare with evidence, not flattened summaries
+
+![PaperLens multi-paper comparison](docs/images/compare.jpg)
+
+Comparison starts from papers you are already reading. Each paper is extracted
+independently before PaperLens aligns methods, experiments, metrics, limitations,
+and custom dimensions. Incomparable conditions remain visible, and supported
+claims retain links back to their paper evidence.
 
 ## Why PaperLens?
 
@@ -45,6 +78,9 @@ coordinates.
 - **Cross-paper comparison:** compare two or three paper versions, distinguish
   missing evidence from confirmed absence, and avoid ranking incomparable
   metrics or datasets.
+- **Contextual research runtime:** questions, hypotheses, comparison sets, and
+  reproducible Agent runs extend the current paper workflow instead of forming
+  a separate top-level product.
 - **Reference workflow:** extract references, lint citation formatting, resolve
   identities through scholarly APIs, and import public arXiv sources.
 
@@ -135,11 +171,13 @@ See [Development](docs/development.md), [Testing](docs/testing.md), and
 
 ## Project status and limitations
 
-PaperLens 1.0 is usable as a self-hosted, single-process application. It is not
-yet a multi-tenant cloud service. SQLite, in-process jobs, permissive development
-CORS, and the absence of built-in authentication are deliberate current
+PaperLens 1.2 is usable as a self-hosted, single-process application. Anonymous
+workspaces use an opaque HttpOnly session cookie and storage-level scoping, and
+development CORS is restricted to the configured frontend origins. This is
+identity isolation, not user-account authentication: it is not yet a
+multi-tenant cloud service. SQLite and in-process jobs remain deliberate
 constraints. Do not expose the API directly to the public internet without an
-authentication layer and a restrictive reverse-proxy configuration.
+authentication layer, TLS, and a restrictive reverse proxy.
 
 Complex borderless tables, scanned PDFs, formula OCR, and unusual multi-column
 layouts can still produce partial parses. PaperLens reports parse and evidence

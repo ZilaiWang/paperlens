@@ -28,6 +28,7 @@ EXCLUDES = [
     ".git",
     ".venv",
     ".paperlens",
+    ".obsidian",
     "data",
     "node_modules",
     ".next",
@@ -39,11 +40,12 @@ EXCLUDES = [
     ".ruff_cache",
     "tests/eval_corpus/*.pdf",
     "tests/results",
+    "改进方案*.md",
 ]
 
 # 禁止出现在包里的目录/文件（对暂存目录检查）
 FORBIDDEN_DIRS = {
-    ".git", ".venv", ".paperlens", "data", "node_modules", ".next",
+    ".git", ".venv", ".paperlens", ".obsidian", "data", "node_modules", ".next",
     "__pycache__", ".pytest_cache", ".ruff_cache",
 }
 FORBIDDEN_FILES = {".env"}
