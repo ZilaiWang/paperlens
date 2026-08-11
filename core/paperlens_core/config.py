@@ -19,7 +19,8 @@ class Settings(BaseSettings):
     )
 
     openai_api_key: str = ""
-    openai_base_url: str = "http://127.0.0.1:1234/v1"
+    # No implicit network target: local/provider URLs are opt-in through .env.
+    openai_base_url: str = ""
     paperlens_model: str = "qwen2.5-7b-instruct"
     paperlens_temperature: float = Field(default=0.1, ge=0, le=1)
     paperlens_max_output_tokens: int = Field(default=1800, ge=128, le=8192)
@@ -44,8 +45,8 @@ class Settings(BaseSettings):
 
     @property
     def llm_configured(self) -> bool:
-        # Local OpenAI-compatible servers commonly accept any non-empty placeholder key.
-        return bool(self.openai_api_key or self.openai_base_url.startswith("http://127.0.0.1"))
+        # Local OpenAI-compatible servers commonly accept an empty API key.
+        return bool(self.openai_api_key or self.openai_base_url)
 
     def ensure_dirs(self) -> None:
         self.paperlens_data_dir.mkdir(parents=True, exist_ok=True)

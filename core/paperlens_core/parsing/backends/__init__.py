@@ -4,7 +4,16 @@ Each backend wraps a concrete parser and emits ``ParseCandidate`` (never
 DocumentIR), per the protocol in :mod:`parsing.contracts`.
 """
 
+from .docling_backend import DoclingBackend
+from .grobid_backend import GROBIDBackend
+from .paddleocr_vl_backend import PaddleOCRVLBackend
 from .pdfplumber_backend import PDFPlumberBackend
 from .pymupdf_backend import PyMuPDFBackend
 
-__all__ = ["PyMuPDFBackend", "PDFPlumberBackend"]
+__all__ = [
+    "DoclingBackend",
+    "GROBIDBackend",
+    "PaddleOCRVLBackend",
+    "PyMuPDFBackend",
+    "PDFPlumberBackend",
+]

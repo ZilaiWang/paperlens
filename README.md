@@ -11,7 +11,7 @@ inspect citations, and compare papers without losing the path back to the source
 [Contributing](CONTRIBUTING.md) · [Roadmap](docs/roadmap.md)
 
 [![CI](https://github.com/ZilaiWang/paperlens/actions/workflows/ci.yml/badge.svg)](https://github.com/ZilaiWang/paperlens/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/badge/release-v1.2.0-b95738.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.3.0-264f87.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)](core/pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -19,21 +19,23 @@ inspect citations, and compare papers without losing the path back to the source
 
 ## Product tour
 
+![PaperLens Deep Reader home](docs/images/home-v13.jpg)
+
 ### Read the paper first
 
-![PaperLens bilingual single-paper reader](docs/images/reader.jpg)
+![PaperLens bilingual single-paper reader](docs/images/reader-v13.jpg)
 
 The single-paper reader is the product center. It reconstructs the document as
-a readable paper, keeps the original PDF one click away, and places the outline,
-figures, tables, references, analysis, translation, and evidence Q&A around the
-current reading context. The assistant stays closed by default so the paper owns
-the screen.
+a readable paper, keeps the original PDF one click away, and leaves only the
+outline, paper, and one **Ask the paper** entry visible by default. Figures,
+tables, references, translation controls, and parse warnings appear only in
+their reading context.
 
 ### Move from a library into focused work
 
 | Paper library | Translation controls |
 | --- | --- |
-| ![PaperLens paper library](docs/images/library.jpg) | ![PaperLens translation settings](docs/images/translation-settings.jpg) |
+| ![PaperLens paper library](docs/images/library-v13.jpg) | ![PaperLens translation settings](docs/images/translation-settings-v13.jpg) |
 
 The library is for opening and selecting papers—not creating a separate project
 model. Select two or three papers to enter comparison mode. Terminology and
@@ -42,7 +44,7 @@ reading without competing with it in the main navigation.
 
 ### Compare with evidence, not flattened summaries
 
-![PaperLens multi-paper comparison](docs/images/compare.jpg)
+![PaperLens multi-paper comparison](docs/images/compare-v13.jpg)
 
 Comparison starts from papers you are already reading. Each paper is extracted
 independently before PaperLens aligns methods, experiments, metrics, limitations,
@@ -65,22 +67,25 @@ coordinates.
 
 - **Structured import:** upload PDF files or import arXiv papers. Modern arXiv
   pages use structured HTML first; PDF parsing remains the fallback.
-- **Layout-aware parsing:** combine PyMuPDF geometry with pdfplumber fallback,
-  reconstruct multi-column paragraphs, detect sections, and preserve media and
-  formula placeholders.
+- **Canonical-first Parser v2:** probe, plan and fuse structure from optional
+  Docling plus local PyMuPDF/pdfplumber backends, score paragraph/order/table/
+  formula/reference quality, then selectively repair only weak pages. GROBID
+  and PaddleOCR-VL are optional semantic and visual providers.
 - **Bilingual reading:** translate incrementally with terminology, citation,
   number, and formula protection.
 - **Grounded Q&A:** retrieve paragraph-level evidence with BM25, draft atomic
   claims, run deterministic and model-based attribution checks, then link every
   accepted claim to its source.
-- **Paper analysis:** build method graphs, structured experiment records,
-  evidence-bound profiles, and quality assessments.
+- **Adaptive Paper Agent:** route quick questions through the fast reader and
+  plan 3–8 evidence, method, experiment, reproduction, or critic capabilities
+  for deeper questions. Findings distinguish fact, inference, assessment, and
+  unknown states.
 - **Cross-paper comparison:** compare two or three paper versions, distinguish
   missing evidence from confirmed absence, and avoid ranking incomparable
   metrics or datasets.
-- **Contextual research runtime:** questions, hypotheses, comparison sets, and
-  reproducible Agent runs extend the current paper workflow instead of forming
-  a separate top-level product.
+- **Installable terminology:** domain term packs participate in translation
+  automatically; personal entries are explicit overrides rather than a
+  separate terminology product.
 - **Reference workflow:** extract references, lint citation formatting, resolve
   identities through scholarly APIs, and import public arXiv sources.
 
@@ -164,6 +169,7 @@ them from the checked-in manifest when needed:
 ```bash
 .venv/bin/python scripts/fetch_eval_corpus.py
 .venv/bin/python scripts/eval_parse.py --corpus tests/eval_corpus
+PYTHONPATH=core .venv/bin/python scripts/agent_bench.py
 ```
 
 See [Development](docs/development.md), [Testing](docs/testing.md), and
@@ -171,7 +177,7 @@ See [Development](docs/development.md), [Testing](docs/testing.md), and
 
 ## Project status and limitations
 
-PaperLens 1.2 is usable as a self-hosted, single-process application. Anonymous
+PaperLens 1.3 is usable as a self-hosted, single-process application. Anonymous
 workspaces use an opaque HttpOnly session cookie and storage-level scoping, and
 development CORS is restricted to the configured frontend origins. This is
 identity isolation, not user-account authentication: it is not yet a

@@ -24,6 +24,11 @@ const STAGE_LABELS: Record<string, string> = {
   draft: "正在生成候选主张…",
   attribute: "正在逐条核验主张与证据…",
   organize: "正在组织最终答案…",
+  search_evidence: "正在定位直接证据…",
+  inspect_method: "正在梳理方法结构…",
+  inspect_experiments: "正在核对实验设计…",
+  inspect_reproduction: "正在检查复现信息…",
+  critical_review: "正在验证结论与边界…",
 };
 
 // V4.6-5（检查 3）：气泡大字的阶段文案由 STAGE_LABELS 提供；小字行显示
@@ -64,8 +69,6 @@ export function AgentPanel({
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
-  // 论文质量评估（质量评估子 Agent）：方法论合理性/数据支撑等 7 维度打分
-  const [qualityBusy, setQualityBusy] = useState(false);
   // 上下文开关（2026-08-05）：默认整篇检索；开启后提问才限定当前章节
   const [contextFollow, setContextFollow] = useState(false);
   const sessionRef = useRef<string | null>(null);
@@ -263,7 +266,8 @@ export function AgentPanel({
           (event) => {
             if (event.event === "stage_started") {
               const stage = String((event.payload as { stage?: unknown }).stage ?? "");
-              const label = STAGE_LABELS[stage];
+              const emittedLabel = (event.payload as { label?: unknown }).label;
+              const label = typeof emittedLabel === "string" ? `${emittedLabel}…` : STAGE_LABELS[stage];
               if (label) {
                 // 阶段推进 → 气泡文字更新，配合 pl-fade 重放，持续可见的推进感
                 setStatus(label);
@@ -403,38 +407,6 @@ export function AgentPanel({
     },
     [busy, runQuestion, collapseHistoryClaims]
   );
-
-  // 论文质量评估（质量评估子 Agent）：以对话消息形式展示——
-  // 追加"用户请求 + 助手占位"两条消息，评估完成后把评分写入助手消息
-  const runQuality = useCallback(async () => {
-    if (qualityBusy) return;
-    setQualityBusy(true);
-    setMessages((list) => [
-      ...list,
-      { role: "user", content: "请对这篇论文做一次质量评估（方法论合理性、数据支撑等维度打分）。" },
-      { role: "assistant", content: "正在从原文检索证据并逐维度评分…", streaming: true, kind: "quality" },
-    ]);
-    try {
-      const result = await api.quality(paperId);
-      setMessages((list) =>
-        list.map((message) =>
-          message.kind === "quality"
-            ? { ...message, streaming: false, content: "", qualityData: result }
-            : message
-        )
-      );
-    } catch (err) {
-      setMessages((list) =>
-        list.map((message) =>
-          message.kind === "quality"
-            ? { ...message, streaming: false, content: `评估失败：${String(err)}` }
-            : message
-        )
-      );
-    } finally {
-      setQualityBusy(false);
-    }
-  }, [paperId, qualityBusy]);
 
   return (
     <aside
@@ -594,27 +566,24 @@ export function AgentPanel({
             ))}
             <div ref={bottomRef} />
           </div>
-          {/* 预设气泡（2026-08-05）：核心思路 / 结果解读 / 局限与疑点 /
-              论文评估 平级一行，单层排列 */}
+          {/* Examples fill the one Paper Agent input; they are not features. */}
           <div className="border-t border-[var(--pl-line)] px-3 pb-1 pt-2.5">
-            <div className="flex flex-wrap gap-1.5">
+            <p className="mb-1.5 px-1 text-[10px] text-[var(--pl-faint)]">你可以这样问</p>
+            <div className="space-y-0.5">
               {(
                 [
-                  ["核心思路", "这篇论文的方法核心思路是什么？关键的创新点落在哪个环节？", "insight"],
-                  ["结果解读", "这篇论文的主要结果如何？在哪些任务或指标上领先、领先多少？", "insight"],
-                  ["局限与疑点", "这篇论文有哪些局限？除了作者承认的，实验设计上还有没有值得质疑的地方？", "insight"],
-                  ["论文评估", "", "quality"],
-                ] as [string, string, string][]
-              ).map(([label, prompt, kind]) => (
+                  exampleQuestion || "这篇论文解决了什么问题，核心方法是什么？",
+                  "主要实验是否充分支持作者的结论？",
+                  "如果要复现这篇论文，还缺少哪些信息？",
+                ]
+              ).map((prompt) => (
                 <button
-                  key={label}
-                  onClick={() =>
-                    kind === "quality" ? void runQuality() : void runInsight(prompt)
-                  }
-                  disabled={kind === "quality" ? qualityBusy : busy}
-                  className="rounded-full border border-[var(--pl-line-strong)] bg-white/70 px-3 py-1.5 text-xs text-[var(--pl-muted)] transition-colors hover:border-[var(--pl-clay)] hover:text-[var(--pl-clay)] disabled:opacity-50"
+                  key={prompt}
+                  onClick={() => setInput(prompt)}
+                  disabled={busy}
+                  className="block w-full rounded-md px-2 py-1.5 text-left text-[11px] leading-4 text-[var(--pl-muted)] transition-colors hover:bg-white hover:text-[var(--pl-clay)] disabled:opacity-50"
                 >
-                  {kind === "quality" && qualityBusy ? "评估中…" : label}
+                  {prompt} <span className="text-[var(--pl-faint)]">→</span>
                 </button>
               ))}
             </div>

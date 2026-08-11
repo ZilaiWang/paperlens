@@ -108,4 +108,18 @@ def build_default_registry(
     registry.register(ToolSpec("search", "Lexical retrieval over the corpus", search_handler))
     registry.register(ToolSpec("profile", "Build a paper profile", profile_handler))
     registry.register(ToolSpec("compare", "Align results across papers", compare_handler))
+    # Capability aliases keep planning semantic while reusing the same grounded
+    # corpus adapter. They are real retrieval operations, not UI-only roles.
+    capability_queries = {
+        "search_evidence": "Find direct evidence and literal support",
+        "inspect_document": "Inspect relevant document sections",
+        "inspect_method": "Inspect method structure and assumptions",
+        "inspect_experiments": "Inspect datasets, baselines, metrics and ablations",
+        "inspect_formula": "Inspect formula definitions and surrounding explanations",
+        "inspect_reproduction": "Inspect implementation, data and environment requirements",
+        "critical_review": "Search limitations, counter-evidence and validity threats",
+        "search_literature": "Search connected literature corpus",
+    }
+    for name, description in capability_queries.items():
+        registry.register(ToolSpec(name, description, search_handler))
     return registry

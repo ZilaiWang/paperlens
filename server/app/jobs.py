@@ -61,6 +61,18 @@ def _store_canonical_document(
     )
 
 
+def _store_pipeline_document(
+    repository: Repository,
+    version_id: str,
+    document: object,
+) -> None:
+    repository.store_document(
+        version_id,
+        "canonical_document_v2",
+        [document.model_dump(mode="json")],
+    )
+
+
 class JobExecutor:
     def __init__(self, repository: Repository, data_dir: str):
         self.repository = repository
@@ -649,38 +661,24 @@ def create_parse_job(
     # layout + text (real page ratio); metadata_and_pages 包住 PDF 解析（耗时归属）
     job.mark_stage("metadata_and_pages", status=JobStatus.RUNNING, ratio=0.2, detail="解析 PDF 页面…")
     repository.update_job(job)
-    from paperlens_core.paragraphs import rebuild_paragraphs
-    from paperlens_core.parse_router import parse_pdf  # V4.0-4：统一入口
+    from .services.parsing import ProductionParseService
 
-    parsed, parse_engine = parse_pdf(raw, pdf_path)
-    # rebuild full paragraphs from line-level blocks (two-column aware);
-    # template fingerprints pin column boundaries and typography when matched
-    from paperlens_core.templates import (
-        extract_fingerprint,
-        load_registry,
-        match_template,
+    production_parse = ProductionParseService().parse(
+        document_path=pdf_path,
+        raw_bytes=raw,
+        source_version_id=version_id,
+        paper_id=paper_id,
     )
-
-    metadata = next(
-        (block.metadata for block in parsed.blocks if block.metadata.get("page_width")), {}
-    )
-    template = None
-    try:
-        fingerprint = extract_fingerprint(
-            parsed.blocks,
-            page_width=float(metadata.get("page_width", 612.0)),
-            page_height=float(metadata.get("page_height", 792.0)),
-        )
-        template = match_template(fingerprint, load_registry())
-    except Exception:  # noqa: BLE001 - fingerprinting is best-effort
-        template = None
-    parsed.blocks = rebuild_paragraphs(parsed.blocks, template=template)
+    version.page_count = production_parse.page_count
+    repository.update_version_page_count(version_id, production_parse.page_count)
+    parsed_blocks = production_parse.blocks
+    parse_engine = production_parse.primary_backend or "parser-v2"
     job.mark_stage("metadata_and_pages", status=JobStatus.SUCCEEDED)
     job.mark_stage(
         "layout_and_text",
         status=JobStatus.RUNNING,
         ratio=1.0,
-        detail=f"{parsed.paper.page_count} 页",
+        detail=f"{production_parse.page_count} 页",
     )
     repository.update_job(job)
     bus.publish(
@@ -688,59 +686,31 @@ def create_parse_job(
         {"event": "stage_progress", "job_id": job.job_id, "stage": "layout_and_text", "progress": 0.25},
     )
 
-    # V4.2 Active Quality Gate：先评估，LOW/SUSPECT 页
-    # 用另一引擎重解析并页级融合，再评估——章节识别基于融合后的 blocks
-    from paperlens_core.quality_gate import assess_pages, fuse_page_candidates
-
-    page_width = float(metadata.get("page_width", 612.0))
-    page_quality = assess_pages(
-        parsed.blocks, page_width=page_width, page_count=parsed.paper.page_count
-    )
-    flagged_pages = [q.page for q in page_quality if q.verdict in ("LOW", "SUSPECT")]
-    fused_pages: dict[str, str] = {}
-    if flagged_pages:
-        alternate_engine = "pdfplumber" if parse_engine == "pymupdf" else "pymupdf"
-        try:
-            from paperlens_core.parse_router import ParseRouter
-
-            alternate = ParseRouter().parse_with_engine(raw, pdf_path, alternate_engine)
-            alternate_blocks = rebuild_paragraphs(alternate.blocks, template=template)
-            fused_blocks, fused_pages = fuse_page_candidates(
-                parsed.blocks,
-                alternate_blocks,
-                flagged_pages,
-                page_width=page_width,
-                primary_engine=parse_engine,
-                alternate_engine=alternate_engine,
-            )
-            if fused_pages:
-                parsed.blocks = fused_blocks
-                get_logger().info(
-                    "active quality gate: %d 页融合（%s）",
-                    len(fused_pages),
-                    fused_pages,
-                )
-        except Exception as exc:  # noqa: BLE001 - quality gate is best-effort
-            get_logger().warning("active quality gate failed: %s", exc)
-    page_quality = assess_pages(
-        parsed.blocks, page_width=page_width, page_count=parsed.paper.page_count
-    )
-    for quality in page_quality:
-        quality.resolved_by = fused_pages.get(quality.page, "")
-    # fused_pages 键是 int 页码，ParseRun 用 str 键（JSON 序列化稳定）
-    fused_pages_str = {str(page): engine for page, engine in fused_pages.items()}
-    parse_run_id = f"pr-{version_id[:12]}-{uuid.uuid4().hex[:8]}"
+    pipeline_result = production_parse.pipeline
+    final_quality = pipeline_result.quality
+    initial_quality = pipeline_result.initial_quality or final_quality
+    page_quality = [
+        {
+            **metrics.model_dump(mode="json"),
+            "resolved_by": pipeline_result.fusion.chosen_pages.get(page, ""),
+        }
+        for page, metrics in sorted(final_quality.page_metrics.items())
+    ]
+    fused_pages_str = {
+        str(page): engine for page, engine in pipeline_result.fusion.chosen_pages.items()
+    }
+    parse_run_id = pipeline_result.parse_run_id
     repository.store_document(
         version_id,
         "page_quality",
-        [quality.model_dump(mode="json") for quality in page_quality],
+        page_quality,
     )
     # ParseRun（V4.2）：解析运行可追溯记录
     from paperlens_core.models import ParseRun
 
     quality_summary: dict[str, int] = {}
-    for quality in page_quality:
-        quality_summary[quality.verdict] = quality_summary.get(quality.verdict, 0) + 1
+    for verdict in final_quality.page_quality.values():
+        quality_summary[verdict] = quality_summary.get(verdict, 0) + 1
     repository.store_document(
         version_id,
         "parse_run",
@@ -748,11 +718,16 @@ def create_parse_job(
             ParseRun(
                 parse_run_id=parse_run_id,
                 paper_version_id=version_id,
-                parser_pipeline=f"hybrid:{parse_engine}",
+                parser_pipeline="parser-v2:probe-plan-fuse-repair",
                 engine=parse_engine,
-                page_count=parsed.paper.page_count,
+                page_count=production_parse.page_count,
                 quality_summary=quality_summary,
                 fused_pages=fused_pages_str,
+                backends=list(pipeline_result.probe.available_backends),
+                repair_passes=pipeline_result.repair_passes,
+                initial_quality=initial_quality.model_dump(mode="json"),
+                final_quality=final_quality.model_dump(mode="json"),
+                backend_errors=pipeline_result.backend_errors,
             ).model_dump(mode="json")
         ],
     )
@@ -761,7 +736,7 @@ def create_parse_job(
     job.mark_stage("layout_and_text", status=JobStatus.SUCCEEDED)
     job.mark_stage("sections", status=JobStatus.RUNNING, ratio=0.4, detail="识别章节结构…")
     repository.update_job(job)
-    sections, assigned = detect_sections(paper_id, parsed.blocks)
+    sections, assigned = detect_sections(paper_id, parsed_blocks)
     job.mark_stage("sections", status=JobStatus.SUCCEEDED, ratio=1.0, detail=f"{len(sections)} 个章节")
     # 论文级元信息（V3.6）：首页排版提取标题/作者，展示页 arXiv 风格 header
     from paperlens_core.metadata import extract_pdf_metadata
@@ -847,13 +822,7 @@ def create_parse_job(
     repository.store_document(version_id, "sections", [s.model_dump(mode="json") for s in sections_ir])
     repository.store_document(version_id, "chunks", [c.model_dump(mode="json") for c in chunks_ir])
     repository.store_document(version_id, "assets", [a.model_dump(mode="json") for a in assets])
-    _store_canonical_document(
-        repository,
-        version_id,
-        list(blocks),
-        parse_run_id=parse_run_id,
-        backend=parse_engine,
-    )
+    _store_pipeline_document(repository, version_id, production_parse.document)
 
     # references: 引用条目解析 + callout 绑定
     job.mark_stage("references", status=JobStatus.RUNNING, ratio=0.4, detail="解析引用…")

@@ -39,12 +39,16 @@ needed:
 ```bash
 .venv/bin/python scripts/fetch_eval_corpus.py --dir tests/eval_corpus
 .venv/bin/python scripts/eval_parse.py --corpus tests/eval_corpus
+PYTHONPATH=core .venv/bin/python scripts/parser_bench.py path/to/local-manifest.json
+PYTHONPATH=core .venv/bin/python scripts/agent_bench.py
 ```
 
 Downloaded PDFs are ignored by Git. Do not add them to commits or release
 archives.
 
-Evaluation writes aggregate parsing results. Treat checked-in result snapshots
+ParserBench records repair passes, backend errors, and paragraph/order/table/
+formula/reference quality in addition to aggregate coverage. AgentBench checks
+depth/intent routing, unique task IDs, and the 3–8 task bound. Treat checked-in result snapshots
 as historical baselines, not universal quality guarantees: parser outcomes vary
 with dependency versions and the document set is small.
 

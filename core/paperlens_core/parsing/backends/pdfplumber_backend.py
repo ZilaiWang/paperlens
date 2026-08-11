@@ -29,12 +29,25 @@ class PDFPlumberBackend(BaseBackend):
             raise RuntimeError(f"pdfplumber unavailable: {exc}") from exc
 
         parsed = parse_pdf_bytes(raw_bytes, document_path)
-        blocks = list(parsed.blocks)
+        from ...paragraphs import rebuild_paragraphs
+
+        blocks = rebuild_paragraphs(list(parsed.blocks))
+        if page_range:
+            start, end = page_range
+            blocks = [block for block in blocks if start <= (getattr(block, "page", 1) or 1) <= end]
         candidates: list[ParseCandidate] = []
         for block in blocks:
             block_type = str(getattr(block, "block_type", "") or "TEXT")
             if block_type == "TABLE":
                 kind = CandidateKind.TABLE
+            elif block_type == "HEADING":
+                kind = CandidateKind.HEADING
+            elif block_type == "CAPTION":
+                kind = CandidateKind.CAPTION
+            elif block_type == "FORMULA":
+                kind = CandidateKind.FORMULA
+            elif block_type == "REFERENCE_ENTRY":
+                kind = CandidateKind.REFERENCE
             else:
                 kind = CandidateKind.PARAGRAPH
             candidates.append(

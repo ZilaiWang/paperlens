@@ -44,6 +44,8 @@ class TermEntry(BaseModel):
     examples: list[str] = Field(default_factory=list)         # sentence pairs
 
     aliases: list[str] = Field(default_factory=list)
+    allowed_translations: list[str] = Field(default_factory=list)
+    deprecated_translations: list[str] = Field(default_factory=list)
     keep_english: bool = False  # shorthand for policy=KEEP
 
     updated_at: str = ""
@@ -79,3 +81,24 @@ class TermMatch(BaseModel):
     confidence: float = 0.0
     locked: bool = False
     matched: bool = False
+
+
+class TermPackManifest(BaseModel):
+    """Installable, versioned terminology pack metadata."""
+
+    pack_id: str
+    name: str
+    domain: str
+    version: str = "1.0.0"
+    description: str = ""
+    language_pair: str = "en->zh"
+    # Bundled starter packs are original PaperLens data and ship under the
+    # repository license. External catalogs must declare their own license.
+    license: str = "MIT"
+    recommended: bool = False
+    term_count: int = 0
+
+
+class TermPack(BaseModel):
+    manifest: TermPackManifest
+    terms: list[TermEntry] = Field(default_factory=list)

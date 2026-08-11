@@ -33,6 +33,45 @@ class TaskType(str, Enum):
     VERIFY = "VERIFY"
 
 
+class AnalysisDepth(str, Enum):
+    QUICK = "QUICK"
+    ANALYTIC = "ANALYTIC"
+    DEEP = "DEEP"
+
+
+class FindingKind(str, Enum):
+    FACT = "FACT"
+    INFERENCE = "INFERENCE"
+    ASSESSMENT = "ASSESSMENT"
+    UNKNOWN = "UNKNOWN"
+
+
+class RequirementState(str, Enum):
+    SPECIFIED = "SPECIFIED"
+    INFERRED = "INFERRED"
+    MISSING = "MISSING"
+    EXTERNAL = "EXTERNAL"
+
+
+class ResearchFinding(BaseModel):
+    """One evidence-bearing claim produced by the Paper Agent."""
+
+    statement: str
+    kind: FindingKind = FindingKind.FACT
+    evidence_ids: list[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    caveats: list[str] = Field(default_factory=list)
+    source_task_id: str = ""
+
+
+class ReproductionRequirement(BaseModel):
+    requirement: str
+    state: RequirementState = RequirementState.MISSING
+    value: str = ""
+    evidence_ids: list[str] = Field(default_factory=list)
+    children: list["ReproductionRequirement"] = Field(default_factory=list)
+
+
 class TaskDependency(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -53,6 +92,8 @@ class TaskDefinition(BaseModel):
     params: dict[str, object] = Field(default_factory=dict)
     dependencies: list[TaskDependency] = Field(default_factory=list)
     description: str = ""
+    capability: str = ""
+    specialist: str = ""
 
 
 class TaskResult(BaseModel):
@@ -89,12 +130,16 @@ class ResearchRun(BaseModel):
     workspace_id: str = ""
     project_id: str = ""
     question: str = ""
+    depth: AnalysisDepth = AnalysisDepth.ANALYTIC
+    intent: str = "GENERAL"
 
     tasks: list[TaskDefinition] = Field(default_factory=list)
     status: RunStatus = RunStatus.PLANNED
 
     artifact: ArtifactProduced | None = None
     findings: list[str] = Field(default_factory=list)
+    structured_findings: list[ResearchFinding] = Field(default_factory=list)
+    reproduction_requirements: list[ReproductionRequirement] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
 
     created_at: str = ""

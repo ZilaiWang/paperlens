@@ -11,7 +11,7 @@ from typing import Any
 
 from paperlens_core.agents.executor import execute_run
 from paperlens_core.agents.models import ResearchRun
-from paperlens_core.agents.planner import create_run_plan
+from paperlens_core.agents.planner import create_adaptive_run_plan
 from paperlens_core.agents.tools import build_default_registry
 from paperlens_core.comparison_v2.alignment import align_results
 from paperlens_core.comparison_v2.comparability import result_record_from_profile
@@ -59,7 +59,7 @@ class ResearchService:
 
     def create_run(self, *, workspace_id: str, project_id: str, question: str, paper_version_ids: list[str] | None = None) -> ResearchRun:
         created = now_iso()
-        run = create_run_plan(
+        run = create_adaptive_run_plan(
             run_id=new_id("run"),
             workspace_id=workspace_id,
             project_id=project_id,
@@ -87,6 +87,11 @@ class ResearchService:
             "ok_count": sum(1 for r in results if r.ok),
             "artifact": run.artifact.model_dump(mode="json") if run.artifact else None,
             "findings": run.findings,
+            "structured_findings": [
+                finding.model_dump(mode="json") for finding in run.structured_findings
+            ],
+            "depth": run.depth.value,
+            "intent": run.intent,
             "tasks": [r.model_dump(mode="json") for r in results],
         }
 

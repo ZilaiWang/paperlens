@@ -435,15 +435,12 @@ def _require_version(version_id: str):
 
 @app.get("/api/papers/{paper_id}/versions")
 def list_versions(paper_id: str) -> list[dict[str, object]]:
-    return [
-        version.model_dump(mode="json")
-        for paper in [repository.get_paper(paper_id)]
-        if paper is not None
-        for version in [_load_versions(paper_id)]
-    ]
+    if repository.get_paper(paper_id) is None:
+        raise HTTPException(404, "paper not found")
+    return _load_versions(paper_id)
 
 
-def _load_versions(paper_id: str) -> list[object]:
+def _load_versions(paper_id: str) -> list[dict[str, object]]:
     # versions are stored with the paper; simplest: scan rows
     rows = repository._conn.execute(
         "SELECT * FROM paper_versions WHERE paper_id=?", (paper_id,)
@@ -693,7 +690,12 @@ def _reader_event_stream(
     settings = Settings()
     reader = PaperReader(OpenAICompatibleModel(settings))
 
-    events: list[dict[str, object]] = []
+    events, agent_context = _prepare_paper_agent(
+        question=request.question,
+        chunks=chunks,
+        workspace_id=str(sessions["user_id"] or "guest"),
+        paper_version_id=version.version_id,
+    )
     answer: dict[str, object] = {}
     for event in reader.run_events(
         question=request.question,
@@ -706,7 +708,7 @@ def _reader_event_stream(
         history=[
             {"role": m["role"], "content": str(m["content"])}
             for m in repository.list_messages(session_id)[-6:]
-        ],
+        ] + ([{"role": "assistant", "content": agent_context}] if agent_context else []),
         task_id=request.task_id,
     ):
         if event.event in {"stage_started", "retrieval_hits", "claim_validated", "claim_rejected"}:
@@ -733,6 +735,69 @@ async def chat_message(session_id: str, request: ChatRequest) -> dict[str, objec
 
 def _sse(event: str, payload: dict[str, object]) -> str:
     return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _prepare_paper_agent(
+    *,
+    question: str,
+    chunks: list[Chunk],
+    workspace_id: str,
+    paper_version_id: str,
+) -> tuple[list[dict[str, object]], str]:
+    """Run adaptive paper capabilities before evidence-grounded answering.
+
+    QUICK questions stay on PaperReader's fast path. Analytic/deep questions
+    execute the bounded capability plan; its findings are supplied as planning
+    context, while PaperReader remains responsible for claim-level evidence.
+    """
+    from paperlens_core.agents import DepthRouter
+    from paperlens_core.agents.executor import execute_run
+    from paperlens_core.agents.planner import create_adaptive_run_plan
+    from paperlens_core.agents.tools import build_default_registry
+    from paperlens_core.retrieval.lexical import TextUnit
+
+    routed = DepthRouter().route(question)
+    if routed.depth.value == "QUICK":
+        return [], ""
+    run = create_adaptive_run_plan(
+        run_id=f"paper-agent-{uuid.uuid4().hex[:10]}",
+        workspace_id=workspace_id,
+        project_id="",
+        question=question,
+        scope_paper_ids=[paper_version_id],
+        depth=routed.depth,
+    )
+    corpus = [
+        TextUnit(
+            unit_id=chunk.chunk_id,
+            paper_version_id=paper_version_id,
+            text=chunk.text,
+            section_path=chunk.section_path,
+            page=chunk.page_start,
+        )
+        for chunk in chunks
+    ]
+    execute_run(run, registry=build_default_registry(corpus=corpus))
+    events = [
+        {
+            "event": "stage_started",
+            "payload": {
+                "stage": task.tool,
+                "label": task.name,
+                "depth": routed.depth.value,
+            },
+        }
+        for task in run.tasks
+        if task.tool
+    ]
+    context_lines = [
+        f"Paper Agent 预分析深度：{routed.depth.value}。以下内容仅作检索规划，最终答案必须重新绑定原文证据："
+    ]
+    context_lines.extend(
+        f"- [{finding.kind.value}] {finding.statement}"
+        for finding in run.structured_findings[:6]
+    )
+    return events, "\n".join(context_lines)
 
 
 @app.post("/api/sessions/{session_id}/messages/stream")
@@ -765,6 +830,14 @@ async def chat_message_stream(session_id: str, request: ChatRequest) -> Streamin
 
         settings = Settings()
         reader = PaperReader(OpenAICompatibleModel(settings))
+        agent_events, agent_context = _prepare_paper_agent(
+            question=request.question,
+            chunks=chunks,
+            workspace_id=str(sessions["user_id"] or "guest"),
+            paper_version_id=version.version_id,
+        )
+        for agent_event in agent_events:
+            yield _sse(agent_event["event"], agent_event["payload"])
         claim_events: list[dict[str, object]] = []
         final_answer: dict[str, object] = {}
         for event in reader.run_events(
@@ -775,7 +848,7 @@ async def chat_message_stream(session_id: str, request: ChatRequest) -> Streamin
             cache_namespace=version.version_id,
             context_scope=request.context,
             context_block_ids=request.context_block_ids,
-            history=history,
+            history=history + ([{"role": "assistant", "content": agent_context}] if agent_context else []),
             task_id=request.task_id,
         ):
             if event.event in {"stage_started", "retrieval_hits", "claim_rejected"}:

@@ -31,6 +31,10 @@ def _isolated_vnext_store(tmp_path, monkeypatch):
     from server.app.services.research import ResearchService
 
     temporary = VNextRepository(tmp_path / "vnext.db")
+    # The repository may have a developer .env pointing at a live local model.
+    # Contract tests are offline and must never inherit or contact that service.
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("OPENAI_BASE_URL", "")
     monkeypatch.setattr(main, "vnext_repository", temporary)
     monkeypatch.setattr(main, "research_service", ResearchService(main.repository, temporary))
     client.cookies.clear()
@@ -324,6 +328,7 @@ class TestTranslationV2API:
         assert "translations" in data
         assert len(data["translations"]) == 1
         assert "stages_run" in data
+        assert data["model_available"] is False
 
     def test_scan_terms_returns_known_terms(self) -> None:
         # 先写入系统术语 backbone

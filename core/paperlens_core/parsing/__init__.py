@@ -28,7 +28,7 @@ from .fusion import FusionOutcome, RegionFusion
 from .pipeline import ParsePipeline, PipelineResult
 from .planner import ParsePlan, ParsePlanner, PlanStep
 from .probe import DocumentProbe, ProbeReport
-from .quality import ParseQualityReport, QualityInspector
+from .quality import PageQualityMetrics, ParseQualityReport, QualityInspector
 from .repair import RepairPlan, RepairPlanner, RepairTarget
 
 __all__ = [
@@ -56,6 +56,7 @@ __all__ = [
     "DocumentProbe",
     "ProbeReport",
     "ParseQualityReport",
+    "PageQualityMetrics",
     "QualityInspector",
     "RepairPlan",
     "RepairPlanner",

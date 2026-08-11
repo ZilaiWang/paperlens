@@ -261,6 +261,14 @@ class Repository:
         )
         self._conn.commit()
 
+    def update_version_page_count(self, version_id: str, page_count: int) -> None:
+        """Persist the authoritative count discovered by the parser probe."""
+        self._conn.execute(
+            "UPDATE paper_versions SET page_count=? WHERE version_id=?",
+            (page_count, version_id),
+        )
+        self._conn.commit()
+
     def get_version(self, version_id: str) -> PaperVersion | None:
         row = self._conn.execute(
             "SELECT * FROM paper_versions WHERE version_id=?", (version_id,)

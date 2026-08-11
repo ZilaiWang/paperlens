@@ -38,6 +38,7 @@ class ProbeReport(BaseModel):
     # pages the planner should route to heavy backends (tables, formulas)
     table_heavy_pages: list[int] = Field(default_factory=list)
     formula_heavy_pages: list[int] = Field(default_factory=list)
+    available_backends: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
 
     def to_plan_hints(self) -> dict[str, object]:
@@ -106,6 +107,7 @@ class DocumentProbe:
 
     def probe(self, document_path: str, raw_bytes: bytes | None = None) -> ProbeReport:
         signals = _ProbeSignals()
+        available_backends: list[str] = []
         # Prefer a backend that can at least report page geometry cheaply.
         for backend in self.backends:
             try:
@@ -115,10 +117,13 @@ class DocumentProbe:
                     backend._document_path = document_path
                 probe = backend.probe(document_path, raw_bytes)
                 if probe.available:
+                    available_backends.append(getattr(backend, "name", type(backend).__name__))
                     self._collect(backend, probe, signals)
             except Exception:  # noqa: BLE001 - probing is best-effort
                 continue
-        return self._build_report(signals)
+        report = self._build_report(signals)
+        report.available_backends = available_backends
+        return report
 
     def _collect(self, backend: object, probe: object, signals: _ProbeSignals) -> None:
         capabilities = getattr(probe, "capabilities", set())

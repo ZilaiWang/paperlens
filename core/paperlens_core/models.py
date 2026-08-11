@@ -60,6 +60,11 @@ class ParseRun(BaseModel):
     page_count: int = 0
     quality_summary: dict[str, int] = Field(default_factory=dict)  # GOOD/SUSPECT/LOW 计数
     fused_pages: dict[str, str] = Field(default_factory=dict)      # page -> 采用的引擎
+    backends: list[str] = Field(default_factory=list)
+    repair_passes: int = 0
+    initial_quality: dict[str, object] = Field(default_factory=dict)
+    final_quality: dict[str, object] = Field(default_factory=dict)
+    backend_errors: dict[str, str] = Field(default_factory=dict)
     started_at: str = Field(default_factory=utc_now_iso)
     finished_at: str = ""
 

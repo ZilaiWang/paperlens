@@ -25,7 +25,7 @@ from paperlens_core.comparison_v2.synthesis import Synthesizer
 from paperlens_core.ir.identity import new_id
 from paperlens_core.papers.profile_builder import PaperProfileBuilder
 from paperlens_core.research.models import Hypothesis, Project, ResearchQuestion
-from paperlens_core.termbase import TermResolver, TermScope
+from paperlens_core.termbase import TermPackCatalog, TermResolver, TermScope
 
 from ..auth import resolve_workspace_id, set_session_cookie
 from ..repositories import VNextRepository
@@ -500,6 +500,41 @@ def delete_term(
     return {"deleted": f"{scope}:{source}"}
 
 
+@router.get("/term-packs")
+def list_term_packs(
+    request: Request,
+    repo: VNextRepository = Depends(_vnext_repo),
+) -> list[dict[str, object]]:
+    installed = set(repo.list_installed_term_packs(_ws(request)))
+    return [
+        {**manifest.model_dump(mode="json"), "installed": manifest.pack_id in installed}
+        for manifest in TermPackCatalog().list()
+    ]
+
+
+@router.post("/term-packs/{pack_id}/install")
+def install_term_pack(
+    pack_id: str,
+    request: Request,
+    repo: VNextRepository = Depends(_vnext_repo),
+) -> dict[str, object]:
+    pack = TermPackCatalog().get(pack_id)
+    if pack is None:
+        raise HTTPException(404, "term pack not found")
+    repo.install_term_pack(_ws(request), pack_id, now_iso())
+    return {**pack.manifest.model_dump(mode="json"), "installed": True}
+
+
+@router.delete("/term-packs/{pack_id}")
+def uninstall_term_pack(
+    pack_id: str,
+    request: Request,
+    repo: VNextRepository = Depends(_vnext_repo),
+) -> dict[str, object]:
+    repo.uninstall_term_pack(_ws(request), pack_id)
+    return {"pack_id": pack_id, "installed": False}
+
+
 # ---------------------------------------------------------------------------
 # Translation memory (改进方案2 §23)
 # ---------------------------------------------------------------------------
@@ -533,7 +568,7 @@ def translate_v2(
     try:
         settings = Settings()
         model = OpenAICompatibleModel(settings)
-        model_ok = bool(settings.openai_api_key or settings.openai_base_url)
+        model_ok = settings.llm_configured
     except Exception:  # noqa: BLE001 - offline/keys missing is a supported mode
         model = None
         model_ok = False
@@ -550,12 +585,23 @@ def translate_v2(
             "note": "未配置 LLM API Key——未执行模型翻译阶段",
         }
 
-    result = engine.translate_paragraphs(
-        paragraphs=payload.paragraphs,
-        section_title=payload.section_title,
-        paper_title=payload.paper_title,
-        thread_id=f"trans-v2-{workspace_id[:8]}",
-    )
+    try:
+        result = engine.translate_paragraphs(
+            paragraphs=payload.paragraphs,
+            section_title=payload.section_title,
+            paper_title=payload.paper_title,
+            thread_id=f"trans-v2-{workspace_id[:8]}",
+        )
+    except Exception as exc:  # noqa: BLE001 - model outage degrades to source text
+        logger.warning("translation v2 model unavailable: %s", exc)
+        return {
+            "workspace_id": workspace_id,
+            "model_available": False,
+            "translations": payload.paragraphs,
+            "issues": [[] for _ in payload.paragraphs],
+            "stages_run": ["CONTEXT", "TERMS", "PROTECT"],
+            "note": "LLM 暂时不可用——已保留原文，可稍后重试",
+        }
     return {
         "workspace_id": workspace_id,
         "model_available": True,
